@@ -28,25 +28,16 @@ try {
     process.exit(1);
   }
 
-  // 3. 自动检测 main.js 位置
-  let mainJsPath;
-  if (existsSync('dist/main.js')) {
-    mainJsPath = 'dist/main.js';
-  } else if (existsSync('build/main.js')) {
-    mainJsPath = 'build/main.js';
-  } else if (existsSync('main.js')) {
-    mainJsPath = 'main.js';
-  } else {
-    console.error('❌ 找不到 main.js 文件');
+  // 3. 检查 dist 目录
+  if (!existsSync('dist/main.js')) {
+    console.error('❌ 找不到 dist/main.js 文件，请先运行 npm run build');
     process.exit(1);
   }
-  console.log(`📄 检测到 main.js: ${mainJsPath}\n`);
 
-  // 4. 检测其他文件
-  const files = [mainJsPath, 'manifest.json'];
-  if (existsSync('styles.css')) files.push('styles.css');
-  if (existsSync('config.json')) files.push('config.json');
-  
+  // 4. 收集 dist 目录中的文件
+  const files = ['dist/main.js', 'dist/manifest.json'];
+  if (existsSync('dist/styles.css')) files.push('dist/styles.css');
+
   console.log(`📦 将上传文件: ${files.join(', ')}\n`);
 
   // 5. 创建 git tag
