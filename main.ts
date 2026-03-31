@@ -2663,10 +2663,10 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
 
     const donateSection = containerEl.createDiv({ cls: 'plugin-donate-section' });
     donateSection.createEl('h3', { text: '☕ 请作者喝杯咖啡' });
-    donateSection.createEl('p', { text: '如果这个插件帮助了你，欢迎扫码打赏，感谢支持！', cls: 'plugin-donate-desc' });
+    donateSection.createEl('p', { text: '如果这个插件帮助了你，欢迎请作者喝杯咖啡 ☕', cls: 'plugin-donate-desc' });
     const imgWrap = donateSection.createDiv({ cls: 'plugin-donate-qr' });
     imgWrap.createEl('img', { attr: { src: this.plugin.app.vault.adapter.getResourcePath(`${this.plugin.manifest.dir}/assets/wechat-donate.jpg`), alt: '微信打赏', width: '160' } });
-    imgWrap.createEl('p', { text: '微信扫码打赏', cls: 'plugin-donate-label' });
+    imgWrap.createEl('p', { text: '微信扫码', cls: 'plugin-donate-label' });
   }
 }
 
