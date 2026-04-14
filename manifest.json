@@ -1,9 +1,10 @@
 {
-  "id": "batch-file-manager",
-  "name": "Batch File Manager",
-  "version": "1.0.0",
-  "minAppVersion": "0.15.0",
-  "description": "批量管理文件：支持批量选择、删除、移动文件",
-  "author": "lizhifeng",
-  "isDesktopOnly": false
+    "id": "file-commander",
+    "name": "File Commander",
+    "version": "1.0.0",
+    "minAppVersion": "1.2.8",
+    "description": "Batch file operations - select, delete, move, tag, rename images, find broken links and orphan notes.",
+    "author": "lizhifeng",
+    "authorUrl": "https://github.com/fengshuzi",
+    "isDesktopOnly": false
 }

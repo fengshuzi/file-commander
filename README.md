@@ -1,4 +1,4 @@
-# Batch File Manager
+# File Commander
 
 一个强大的 Obsidian 批量文件管理插件，支持批量选择、删除、移动文件，以及迁移未完成任务。
 
@@ -34,17 +34,17 @@
    - `main.js`
    - `manifest.json`
    - `styles.css`
-3. 在你的 Obsidian 库中创建插件目录：`.obsidian/plugins/obsidian-batch-file-manager/`
+3. 在你的 Obsidian 库中创建插件目录：`.obsidian/plugins/file-commander/`
 4. 将下载的文件复制到该目录
 5. 重启 Obsidian 或刷新插件列表
-6. 在设置中启用"Batch File Manager"插件
+6. 在设置中启用"File Commander"插件
 
 ### 方式二：手动安装
 
 ```bash
 cd /path/to/your/vault/.obsidian/plugins
-git clone https://github.com/你的用户名/obsidian-batch-file-manager.git
-cd obsidian-batch-file-manager
+git clone https://github.com/你的用户名/file-commander.git
+cd file-commander
 npm install
 npm run build
 ```

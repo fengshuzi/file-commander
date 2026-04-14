@@ -17,27 +17,27 @@ const NOTE_DEMO_PATH = join(
 const vaults = [
   {
     name: 'Mobile',
-    path: join(BASE_PATH, '.obsidian-mobile/plugins/batch-file-manager')
+    path: join(BASE_PATH, '.obsidian-mobile/plugins/file-commander')
   },
   {
     name: 'Pro',
-    path: join(BASE_PATH, '.obsidian-pro/plugins/batch-file-manager')
+    path: join(BASE_PATH, '.obsidian-pro/plugins/file-commander')
   },
   {
     name: 'iPad',
-    path: join(BASE_PATH, '.obsidian-ipad/plugins/batch-file-manager')
+    path: join(BASE_PATH, '.obsidian-ipad/plugins/file-commander')
   },
   {
     name: '2017',
-    path: join(BASE_PATH, '.obsidian-2017/plugins/batch-file-manager')
+    path: join(BASE_PATH, '.obsidian-2017/plugins/file-commander')
   },
   {
     name: 'Zhang',
-    path: join(BASE_PATH, '.obsidian-zhang/plugins/batch-file-manager')
+    path: join(BASE_PATH, '.obsidian-zhang/plugins/file-commander')
   },
   {
     name: 'Note-Demo',
-    path: join(NOTE_DEMO_PATH, '.obsidian/plugins/batch-file-manager')
+    path: join(NOTE_DEMO_PATH, '.obsidian/plugins/file-commander')
   }
 ];
 
@@ -48,7 +48,7 @@ const files = [
   { src: 'dist/styles.css', dest: 'styles.css' }
 ];
 
-console.log('🚀 开始部署 Batch File Manager 插件...\n');
+console.log('🚀 开始部署 File Commander 插件...\n');
 
 let successCount = 0;
 let failCount = 0;

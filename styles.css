@@ -1,4 +1,4 @@
-.batch-file-manager-view {
+.file-commander-view {
   padding: 10px;
   height: 100%;
   display: flex;
@@ -216,4 +216,85 @@
     font-size: 0.78rem;
     color: var(--text-muted);
     margin: 0;
+}
+
+/* Utility classes for replacing inline styles */
+.fc-mb-15 {
+  margin-bottom: 15px;
+}
+
+.fc-mt-15 {
+  margin-top: 15px;
+}
+
+.fc-search-input {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.fc-list-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+.fc-list-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.fc-list-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.fc-icon-mr {
+  margin-right: 8px;
+}
+
+.fc-flex-1 {
+  flex: 1;
+}
+
+.fc-checkbox-mr {
+  margin-right: 10px;
+}
+
+.fc-input-full {
+  width: 100%;
+}
+
+.fc-btn-spread {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fc-btn-group {
+  display: flex;
+  gap: 10px;
+}
+
+.fc-folder-filter-bar {
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fc-folder-path {
+  font-weight: bold;
+  flex: 1;
+}
+
+.folder-filter-item:hover {
+  background-color: var(--background-modifier-hover);
 }

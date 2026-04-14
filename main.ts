@@ -1,6 +1,6 @@
 import { App, Plugin, TFile, TFolder, WorkspaceLeaf, ItemView, Menu, Notice, PluginSettingTab, Setting, Modal, TextComponent } from 'obsidian';
 
-const VIEW_TYPE_BATCH_MANAGER = 'batch-file-manager-view';
+const VIEW_TYPE_BATCH_MANAGER = 'file-commander-view';
 
 interface FileItem {
   file: TFile;
@@ -57,27 +57,19 @@ class FolderSelectModal extends Modal {
 
     contentEl.createEl('h2', { text: '选择文件夹' });
 
-    const description = contentEl.createEl('p', { 
+    contentEl.createEl('p', { 
       text: '选择一个文件夹来查看其中的笔记',
-      cls: 'modal-description'
+      cls: 'modal-description fc-mb-15'
     });
-    description.style.marginBottom = '15px';
 
     // 搜索框
     const searchContainer = contentEl.createDiv({ cls: 'folder-search-container' });
     const searchInput = new TextComponent(searchContainer);
     searchInput.setPlaceholder('搜索文件夹...');
-    searchInput.inputEl.style.width = '100%';
-    searchInput.inputEl.style.marginBottom = '10px';
+    searchInput.inputEl.addClass('fc-search-input');
 
     // 文件夹列表容器
-    const folderListContainer = contentEl.createDiv({ cls: 'folder-list-container' });
-    folderListContainer.style.maxHeight = '400px';
-    folderListContainer.style.overflowY = 'auto';
-    folderListContainer.style.border = '1px solid var(--background-modifier-border)';
-    folderListContainer.style.borderRadius = '4px';
-    folderListContainer.style.padding = '10px';
-    folderListContainer.style.marginBottom = '15px';
+    const folderListContainer = contentEl.createDiv({ cls: 'folder-list-container fc-list-container' });
 
     const renderFolderList = (filter: string = '') => {
       folderListContainer.empty();
@@ -92,29 +84,14 @@ class FolderSelectModal extends Modal {
       }
 
       filteredFolders.forEach(folder => {
-        const folderItem = folderListContainer.createDiv({ cls: 'folder-filter-item' });
-        folderItem.style.display = 'flex';
-        folderItem.style.alignItems = 'center';
-        folderItem.style.padding = '8px';
-        folderItem.style.cursor = 'pointer';
-        folderItem.style.borderRadius = '4px';
+        const folderItem = folderListContainer.createDiv({ cls: 'folder-filter-item fc-list-item' });
 
-        const icon = folderItem.createEl('span', { text: '📁 ' });
-        icon.style.marginRight = '8px';
-
-        const label = folderItem.createEl('span', { text: folder.path || '/' });
-        label.style.flex = '1';
+        folderItem.createEl('span', { text: '📁 ', cls: 'fc-icon-mr' });
+        folderItem.createEl('span', { text: folder.path || '/', cls: 'fc-flex-1' });
 
         folderItem.onclick = () => {
           this.onSubmit(folder);
           this.close();
-        };
-
-        folderItem.onmouseenter = () => {
-          folderItem.style.backgroundColor = 'var(--background-modifier-hover)';
-        };
-        folderItem.onmouseleave = () => {
-          folderItem.style.backgroundColor = '';
         };
       });
     };
@@ -126,10 +103,7 @@ class FolderSelectModal extends Modal {
     });
 
     // 按钮容器
-    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.justifyContent = 'space-between';
-    buttonContainer.style.gap = '10px';
+    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container fc-btn-spread' });
 
     const showAllBtn = buttonContainer.createEl('button', { text: '显示所有笔记' });
     showAllBtn.onclick = () => {
@@ -173,27 +147,19 @@ class TagFilterModal extends Modal {
       return;
     }
 
-    const description = contentEl.createEl('p', { 
+    contentEl.createEl('p', { 
       text: '选择一个或多个标签来筛选文件（显示包含任意选中标签的文件）',
-      cls: 'modal-description'
+      cls: 'modal-description fc-mb-15'
     });
-    description.style.marginBottom = '15px';
 
     // 搜索框
     const searchContainer = contentEl.createDiv({ cls: 'tag-search-container' });
     const searchInput = new TextComponent(searchContainer);
     searchInput.setPlaceholder('搜索标签...');
-    searchInput.inputEl.style.width = '100%';
-    searchInput.inputEl.style.marginBottom = '10px';
+    searchInput.inputEl.addClass('fc-search-input');
 
     // 标签列表容器
-    const tagListContainer = contentEl.createDiv({ cls: 'tag-list-container' });
-    tagListContainer.style.maxHeight = '400px';
-    tagListContainer.style.overflowY = 'auto';
-    tagListContainer.style.border = '1px solid var(--background-modifier-border)';
-    tagListContainer.style.borderRadius = '4px';
-    tagListContainer.style.padding = '10px';
-    tagListContainer.style.marginBottom = '15px';
+    const tagListContainer = contentEl.createDiv({ cls: 'tag-list-container fc-list-container' });
 
     const renderTagList = (filter: string = '') => {
       tagListContainer.empty();
@@ -208,16 +174,10 @@ class TagFilterModal extends Modal {
       }
 
       filteredTags.forEach(tag => {
-        const tagItem = tagListContainer.createDiv({ cls: 'tag-filter-item' });
-        tagItem.style.display = 'flex';
-        tagItem.style.alignItems = 'center';
-        tagItem.style.padding = '5px';
-        tagItem.style.cursor = 'pointer';
-        tagItem.style.borderRadius = '4px';
+        const tagItem = tagListContainer.createDiv({ cls: 'tag-filter-item fc-list-item' });
 
-        const checkbox = tagItem.createEl('input', { type: 'checkbox' });
+        const checkbox = tagItem.createEl('input', { type: 'checkbox', cls: 'fc-checkbox-mr' });
         checkbox.checked = this.tempSelectedTags.has(tag);
-        checkbox.style.marginRight = '10px';
         checkbox.onclick = (e) => {
           e.stopPropagation();
           if (checkbox.checked) {
@@ -227,8 +187,7 @@ class TagFilterModal extends Modal {
           }
         };
 
-        const label = tagItem.createEl('span', { text: tag });
-        label.style.flex = '1';
+        tagItem.createEl('span', { text: tag, cls: 'fc-flex-1' });
 
         tagItem.onclick = () => {
           checkbox.checked = !checkbox.checked;
@@ -237,13 +196,6 @@ class TagFilterModal extends Modal {
           } else {
             this.tempSelectedTags.delete(tag);
           }
-        };
-
-        tagItem.onmouseenter = () => {
-          tagItem.style.backgroundColor = 'var(--background-modifier-hover)';
-        };
-        tagItem.onmouseleave = () => {
-          tagItem.style.backgroundColor = '';
         };
       });
     };
@@ -255,10 +207,7 @@ class TagFilterModal extends Modal {
     });
 
     // 按钮容器
-    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.justifyContent = 'space-between';
-    buttonContainer.style.gap = '10px';
+    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container fc-btn-spread' });
 
     const clearBtn = buttonContainer.createEl('button', { text: '清除所有' });
     clearBtn.onclick = () => {
@@ -266,9 +215,7 @@ class TagFilterModal extends Modal {
       renderTagList(searchInput.getValue());
     };
 
-    const rightButtons = buttonContainer.createDiv();
-    rightButtons.style.display = 'flex';
-    rightButtons.style.gap = '10px';
+    const rightButtons = buttonContainer.createDiv({ cls: 'fc-btn-group' });
 
     const cancelBtn = rightButtons.createEl('button', { text: '取消' });
     cancelBtn.onclick = () => {
@@ -311,7 +258,7 @@ class TagInputModal extends Modal {
     });
 
     const input = new TextComponent(inputContainer);
-    input.inputEl.style.width = '100%';
+    input.inputEl.addClass('fc-input-full');
     input.setValue(this.defaultValue);
     input.onChange((value) => {
       this.result = value;
@@ -326,10 +273,6 @@ class TagInputModal extends Modal {
     });
 
     const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-    buttonContainer.style.marginTop = '20px';
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.justifyContent = 'flex-end';
-    buttonContainer.style.gap = '10px';
 
     const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
     cancelBtn.onclick = () => {
@@ -382,8 +325,8 @@ class FolderInputModal extends Modal {
     });
 
     const input = new TextComponent(inputContainer);
-    input.inputEl.style.width = '100%';
-    input.setPlaceholder('folder/subfolder');
+    input.inputEl.addClass('fc-input-full');
+    input.setPlaceholder('Folder/subfolder');
     input.onChange((value) => {
       this.result = value;
     });
@@ -397,10 +340,6 @@ class FolderInputModal extends Modal {
     });
 
     const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-    buttonContainer.style.marginTop = '20px';
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.justifyContent = 'flex-end';
-    buttonContainer.style.gap = '10px';
 
     const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
     cancelBtn.onclick = () => {
@@ -446,28 +385,26 @@ class ReplaceTagModal extends Modal {
 
     contentEl.createEl('h2', { text: '批量替换标签' });
 
-    const description = contentEl.createEl('p', { 
+    contentEl.createEl('p', { 
       text: '将旧标签替换为新标签（标签可以带或不带 # 符号）',
-      cls: 'modal-description'
+      cls: 'modal-description fc-mb-15'
     });
-    description.style.marginBottom = '15px';
 
     // 旧标签输入
     const oldTagContainer = contentEl.createDiv({ cls: 'modal-input-container' });
     oldTagContainer.createEl('label', { text: '旧标签:' });
     const oldTagInput = new TextComponent(oldTagContainer);
-    oldTagInput.inputEl.style.width = '100%';
+    oldTagInput.inputEl.addClass('fc-input-full');
     oldTagInput.setPlaceholder('例如: cy 或 #cy');
     oldTagInput.onChange((value) => {
       this.oldTag = value;
     });
 
     // 新标签输入
-    const newTagContainer = contentEl.createDiv({ cls: 'modal-input-container' });
-    newTagContainer.style.marginTop = '15px';
+    const newTagContainer = contentEl.createDiv({ cls: 'modal-input-container fc-mt-15' });
     newTagContainer.createEl('label', { text: '新标签:' });
     const newTagInput = new TextComponent(newTagContainer);
-    newTagInput.inputEl.style.width = '100%';
+    newTagInput.inputEl.addClass('fc-input-full');
     newTagInput.setPlaceholder('例如: 餐饮 或 #餐饮');
     newTagInput.onChange((value) => {
       this.newTag = value;
@@ -484,10 +421,6 @@ class ReplaceTagModal extends Modal {
     newTagInput.inputEl.addEventListener('keydown', handleEnter);
 
     const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-    buttonContainer.style.marginTop = '20px';
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.justifyContent = 'flex-end';
-    buttonContainer.style.gap = '10px';
 
     const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
     cancelBtn.onclick = () => {
@@ -539,28 +472,26 @@ class RenameFrontmatterPropertyModal extends Modal {
 
     contentEl.createEl('h2', { text: '批量重命名元数据属性' });
 
-    const description = contentEl.createEl('p', { 
+    contentEl.createEl('p', { 
       text: '将 frontmatter 中的旧属性名重命名为新属性名',
-      cls: 'modal-description'
+      cls: 'modal-description fc-mb-15'
     });
-    description.style.marginBottom = '15px';
 
     // 旧属性名输入
     const oldPropertyContainer = contentEl.createDiv({ cls: 'modal-input-container' });
     oldPropertyContainer.createEl('label', { text: '旧属性名:' });
     const oldPropertyInput = new TextComponent(oldPropertyContainer);
-    oldPropertyInput.inputEl.style.width = '100%';
+    oldPropertyInput.inputEl.addClass('fc-input-full');
     oldPropertyInput.setPlaceholder('例如: category 或 是否锻炼');
     oldPropertyInput.onChange((value) => {
       this.oldProperty = value;
     });
 
     // 新属性名输入
-    const newPropertyContainer = contentEl.createDiv({ cls: 'modal-input-container' });
-    newPropertyContainer.style.marginTop = '15px';
+    const newPropertyContainer = contentEl.createDiv({ cls: 'modal-input-container fc-mt-15' });
     newPropertyContainer.createEl('label', { text: '新属性名:' });
     const newPropertyInput = new TextComponent(newPropertyContainer);
-    newPropertyInput.inputEl.style.width = '100%';
+    newPropertyInput.inputEl.addClass('fc-input-full');
     newPropertyInput.setPlaceholder('例如: type 或 运动打卡');
     newPropertyInput.onChange((value) => {
       this.newProperty = value;
@@ -577,10 +508,6 @@ class RenameFrontmatterPropertyModal extends Modal {
     newPropertyInput.inputEl.addEventListener('keydown', handleEnter);
 
     const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-    buttonContainer.style.marginTop = '20px';
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.justifyContent = 'flex-end';
-    buttonContainer.style.gap = '10px';
 
     const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
     cancelBtn.onclick = () => {
@@ -617,6 +544,34 @@ class RenameFrontmatterPropertyModal extends Modal {
   }
 }
 
+class ConfirmModal extends Modal {
+  message: string;
+  onConfirm: () => void;
+
+  constructor(app: App, message: string, onConfirm: () => void) {
+    super(app);
+    this.message = message;
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('p', { text: this.message });
+    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+    const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
+    cancelBtn.onclick = () => this.close();
+    const confirmBtn = buttonContainer.createEl('button', { text: '确定', cls: 'mod-warning' });
+    confirmBtn.onclick = () => {
+      this.close();
+      this.onConfirm();
+    };
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class BatchFileManagerView extends ItemView {
   private files: FileItem[] = [];
   private allFiles: FileItem[] = []; // 保存所有文件
@@ -646,7 +601,7 @@ class BatchFileManagerView extends ItemView {
   async onOpen() {
     const container = this.containerEl.children[1];
     container.empty();
-    container.addClass('batch-file-manager-view');
+    container.addClass('file-commander-view');
 
     // 先显示加载提示
     const loadingDiv = container.createDiv({ cls: 'batch-manager-empty' });
@@ -771,21 +726,12 @@ class BatchFileManagerView extends ItemView {
 
     // 文件夹筛选显示区域
     if (this.selectedFolder) {
-      const folderFilterDiv = container.createDiv({ cls: 'batch-manager-folder-filter' });
-      folderFilterDiv.style.padding = '10px';
-      folderFilterDiv.style.marginBottom = '10px';
-      folderFilterDiv.style.backgroundColor = 'var(--background-secondary)';
-      folderFilterDiv.style.borderRadius = '4px';
-      folderFilterDiv.style.display = 'flex';
-      folderFilterDiv.style.alignItems = 'center';
-      folderFilterDiv.style.gap = '10px';
+      const folderFilterDiv = container.createDiv({ cls: 'batch-manager-folder-filter fc-folder-filter-bar' });
       
       folderFilterDiv.createEl('span', { text: '📁 当前文件夹: ', cls: 'folder-filter-label' });
       
-      const folderPath = folderFilterDiv.createEl('span', { cls: 'folder-path' });
+      const folderPath = folderFilterDiv.createEl('span', { cls: 'folder-path fc-folder-path' });
       folderPath.setText(this.selectedFolder.path || '/');
-      folderPath.style.fontWeight = 'bold';
-      folderPath.style.flex = '1';
       
       const clearFolderBtn = folderFilterDiv.createEl('button', { text: '清除', cls: 'clear-filter-btn' });
       clearFolderBtn.onclick = () => {
@@ -829,11 +775,8 @@ class BatchFileManagerView extends ItemView {
 
       // 整个文件项都可以点击打开文件
       fileItem.onclick = () => {
-        this.app.workspace.getLeaf().openFile(item.file);
+        void this.app.workspace.getLeaf().openFile(item.file);
       };
-
-      // 添加 hover 样式
-      fileItem.style.cursor = 'pointer';
 
       // 右键菜单
       fileItem.oncontextmenu = (e) => {
@@ -844,7 +787,7 @@ class BatchFileManagerView extends ItemView {
           menuItem.setTitle('打开')
             .setIcon('file')
             .onClick(() => {
-              this.app.workspace.getLeaf().openFile(item.file);
+              void this.app.workspace.getLeaf().openFile(item.file);
             });
         });
 
@@ -852,7 +795,7 @@ class BatchFileManagerView extends ItemView {
           menuItem.setTitle('删除')
             .setIcon('trash')
             .onClick(() => {
-              this.deleteFile(item.file);
+              void this.deleteFile(item.file);
             });
         });
 
@@ -889,9 +832,10 @@ class BatchFileManagerView extends ItemView {
         
         // 从 frontmatter 提取标签
         if (cache?.frontmatter?.tags) {
-          const fmTags = cache.frontmatter.tags;
+          const fmTags: unknown = cache.frontmatter.tags;
           if (Array.isArray(fmTags)) {
-            fmTags.forEach(tag => {
+            fmTags.forEach((tag: unknown) => {
+              if (typeof tag !== 'string') return;
               const cleanTag = tag.startsWith('#') ? tag : `#${tag}`;
               this.availableTags.add(cleanTag);
             });
@@ -926,9 +870,10 @@ class BatchFileManagerView extends ItemView {
     let filteredFiles = [...this.allFiles];
 
     // 应用文件夹筛选
-    if (this.selectedFolder) {
+    if (this.selectedFolder instanceof TFolder) {
+      const folder = this.selectedFolder;
       filteredFiles = filteredFiles.filter(item => {
-        return this.isFileInFolder(item.file, this.selectedFolder!);
+        return this.isFileInFolder(item.file, folder);
       });
     }
 
@@ -960,9 +905,10 @@ class BatchFileManagerView extends ItemView {
     
     // 从 frontmatter 获取标签
     if (cache?.frontmatter?.tags) {
-      const fmTags = cache.frontmatter.tags;
+      const fmTags: unknown = cache.frontmatter.tags;
       if (Array.isArray(fmTags)) {
-        fmTags.forEach(tag => {
+        fmTags.forEach((tag: unknown) => {
+          if (typeof tag !== 'string') return;
           const cleanTag = tag.startsWith('#') ? tag : `#${tag}`;
           fileTags.add(cleanTag);
         });
@@ -1050,37 +996,39 @@ class BatchFileManagerView extends ItemView {
       return;
     }
 
-    const confirmed = confirm(`确定要删除 ${selected.length} 个文件吗？此操作不可撤销！`);
-    if (!confirmed) return;
+    new ConfirmModal(this.app, `确定要删除 ${selected.length} 个文件吗？此操作不可撤销！`, () => {
+      void (async () => {
+        let successCount = 0;
+        let failCount = 0;
 
-    let successCount = 0;
-    let failCount = 0;
+        for (const file of selected) {
+          try {
+            await this.app.fileManager.trashFile(file);
+            successCount++;
+          } catch (error) {
+            console.error(`删除文件失败: ${file.path}`, error);
+            failCount++;
+          }
+        }
 
-    for (const file of selected) {
-      try {
-        await this.app.vault.delete(file);
-        successCount++;
-      } catch (error) {
-        console.error(`删除文件失败: ${file.path}`, error);
-        failCount++;
-      }
-    }
-
-    new Notice(`删除完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
-    await this.loadFiles();
+        new Notice(`删除完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
+        await this.loadFiles();
+      })();
+    }).open();
   }
 
-  private async deleteFile(file: TFile) {
-    const confirmed = confirm(`确定要删除 ${file.path} 吗？`);
-    if (!confirmed) return;
-
-    try {
-      await this.app.vault.delete(file);
-      new Notice(`已删除: ${file.path}`);
-      await this.loadFiles();
-    } catch (error) {
-      new Notice(`删除失败: ${error.message}`);
-    }
+  private deleteFile(file: TFile) {
+    new ConfirmModal(this.app, `确定要删除 ${file.path} 吗？`, () => {
+      void (async () => {
+        try {
+          await this.app.fileManager.trashFile(file);
+          new Notice(`已删除: ${file.path}`);
+          await this.loadFiles();
+        } catch (error) {
+          new Notice(`删除失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      })();
+    }).open();
   }
 
   private async moveSelected() {
@@ -1091,7 +1039,8 @@ class BatchFileManagerView extends ItemView {
     }
 
     // 使用自定义模态框代替 prompt
-    new FolderInputModal(this.app, async (targetPath) => {
+    new FolderInputModal(this.app, (targetPath) => {
+      void (async () => {
       if (!targetPath) return;
 
       // 确保目标文件夹存在
@@ -1121,6 +1070,7 @@ class BatchFileManagerView extends ItemView {
 
       new Notice(`移动完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
       await this.loadFiles();
+      })();
     }).open();
   }
 
@@ -1132,7 +1082,8 @@ class BatchFileManagerView extends ItemView {
     }
 
     // 使用自定义模态框代替 prompt
-    new TagInputModal(this.app, this.plugin.settings.defaultTags, async (tagsInput) => {
+    new TagInputModal(this.app, this.plugin.settings.defaultTags, (tagsInput) => {
+      void (async () => {
       if (!tagsInput) return;
 
       // 解析标签，确保每个标签都以 # 开头
@@ -1186,11 +1137,11 @@ class BatchFileManagerView extends ItemView {
       }
 
       new Notice(`打标签完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
+      })();
     }).open();
   }
 
   private addTagsToFrontmatter(content: string, tags: string): string {
-    const tagArray = tags.split(/\s+/).filter(t => t);
     const lines = content.split('\n');
     
     // 检查是否已有 frontmatter
@@ -1245,7 +1196,8 @@ class BatchFileManagerView extends ItemView {
       return;
     }
 
-    new ReplaceTagModal(this.app, async (oldTag, newTag) => {
+    new ReplaceTagModal(this.app, (oldTag, newTag) => {
+      void (async () => {
       // 确保标签格式正确
       const oldTagFormatted = oldTag.startsWith('#') ? oldTag : `#${oldTag}`;
       const newTagFormatted = newTag.startsWith('#') ? newTag : `#${newTag}`;
@@ -1280,6 +1232,7 @@ class BatchFileManagerView extends ItemView {
       
       // 刷新文件列表以更新标签显示
       await this.loadFiles();
+      })();
     }).open();
   }
 
@@ -1290,7 +1243,8 @@ class BatchFileManagerView extends ItemView {
       return;
     }
 
-    new RenameFrontmatterPropertyModal(this.app, async (oldProperty, newProperty) => {
+    new RenameFrontmatterPropertyModal(this.app, (oldProperty, newProperty) => {
+      void (async () => {
       let successCount = 0;
       let failCount = 0;
       let notFoundCount = 0;
@@ -1360,6 +1314,7 @@ class BatchFileManagerView extends ItemView {
       
       // 刷新文件列表
       await this.loadFiles();
+      })();
     }).open();
   }
 
@@ -1559,7 +1514,7 @@ class BatchFileManagerView extends ItemView {
             // 尝试仅文件名匹配（简写链接如 ![](xxx.png)）
             const fileName = variant.split('/').pop()?.toLowerCase();
             if (fileName && imageNameToPath.has(fileName)) {
-              referencedPaths.add(imageNameToPath.get(fileName)!);
+              referencedPaths.add(imageNameToPath.get(fileName));
               break;
             }
           }
@@ -1579,12 +1534,12 @@ class BatchFileManagerView extends ItemView {
             }
             const fileName = variant.split('/').pop()?.toLowerCase();
             if (fileName && imageNameToPath.has(fileName)) {
-              referencedPaths.add(imageNameToPath.get(fileName)!);
+              referencedPaths.add(imageNameToPath.get(fileName));
               break;
             }
           }
         }
-      } catch (e) {
+      } catch {
         // 读取失败时忽略
       }
     }
@@ -1665,7 +1620,7 @@ class BatchFileManagerView extends ItemView {
     
     // 如果有选中的文件夹，只在该文件夹中查找
     const filesToCheck = this.selectedFolder 
-      ? this.app.vault.getMarkdownFiles().filter(file => this.isFileInFolder(file, this.selectedFolder!))
+      ? this.app.vault.getMarkdownFiles().filter(file => this.selectedFolder instanceof TFolder && this.isFileInFolder(file, this.selectedFolder))
       : this.app.vault.getMarkdownFiles();
     
     const untaggedFiles: TFile[] = [];
@@ -1677,7 +1632,7 @@ class BatchFileManagerView extends ItemView {
         
         // 检查 frontmatter 中的标签
         if (cache?.frontmatter?.tags) {
-          const fmTags = cache.frontmatter.tags;
+          const fmTags: unknown = cache.frontmatter.tags;
           if (Array.isArray(fmTags) && fmTags.length > 0) {
             hasTags = true;
           } else if (typeof fmTags === 'string' && fmTags.trim()) {
@@ -1695,7 +1650,7 @@ class BatchFileManagerView extends ItemView {
           const content = await this.app.vault.read(file);
           // 匹配 #标签 格式（标签可以在任何位置，包括列表项末尾）
           // 匹配规则：# 后面跟着非空白字符，直到遇到空白、换行或文件结束
-          const tagPattern = /#[^\s#\[\](){}]+/g;
+          const tagPattern = /#[^\s#[\](){}]+/g;
           const matches = content.match(tagPattern);
           if (matches && matches.length > 0) {
             // 过滤掉可能的误判（比如 markdown 标题 # 开头的）
@@ -1705,7 +1660,7 @@ class BatchFileManagerView extends ItemView {
               if (index > 0) {
                 const charBefore = content[index - 1];
                 // 如果前面是空白字符或标点，则是有效标签
-                return /[\s\-\(\)\[\]（）【】]/.test(charBefore);
+                return /[\s\-()[\]（）【】]/.test(charBefore);
               }
               return false; // 行首的 # 可能是标题
             });
@@ -1749,7 +1704,7 @@ class BatchFileManagerView extends ItemView {
     
     // 如果有选中的文件夹，只在该文件夹中查找
     const filesToCheck = this.selectedFolder 
-      ? this.app.vault.getMarkdownFiles().filter(file => this.isFileInFolder(file, this.selectedFolder!))
+      ? this.app.vault.getMarkdownFiles().filter(file => this.selectedFolder instanceof TFolder && this.isFileInFolder(file, this.selectedFolder))
       : this.app.vault.getMarkdownFiles();
     
     const allMarkdownFiles = this.app.vault.getMarkdownFiles();
@@ -1829,7 +1784,7 @@ class BatchFileManagerView extends ItemView {
     
     // 如果有选中的文件夹，只在该文件夹中查找
     const filesToCheck = this.selectedFolder 
-      ? this.app.vault.getMarkdownFiles().filter(file => this.isFileInFolder(file, this.selectedFolder!))
+      ? this.app.vault.getMarkdownFiles().filter(file => this.selectedFolder instanceof TFolder && this.isFileInFolder(file, this.selectedFolder))
       : this.app.vault.getMarkdownFiles();
     
     const emptyFiles: TFile[] = [];
@@ -2068,7 +2023,7 @@ class BatchFileManagerView extends ItemView {
                 changed = true;
               }
               if (changed) await this.app.vault.modify(md, content);
-            } catch (_) {
+            } catch {
               // 单文件更新失败不中断
             }
           }
@@ -2159,7 +2114,7 @@ class BatchFileManagerView extends ItemView {
       }
       totalMerged++;
       for (const f of monthDeletes[month]) {
-        await this.app.vault.delete(f);
+        await this.app.fileManager.trashFile(f);
         totalDeleted++;
       }
     }
@@ -2210,7 +2165,7 @@ class BatchFileManagerView extends ItemView {
         }
         totalRestored++;
       }
-      await this.app.vault.delete(mf);
+      await this.app.fileManager.trashFile(mf);
     }
     new Notice(`一键还原完成: 还原 ${totalRestored} 个日文件`);
     await this.loadFiles();
@@ -2221,7 +2176,7 @@ class BatchFileManagerView extends ItemView {
     const selected = this.getSelectedFiles();
     const mdFiles = selected.filter((f) => f.extension === 'md');
     if (mdFiles.length === 0) {
-      new Notice('请先选择包含 mermaid 流程图的笔记');
+      new Notice('请先选择包含 Mermaid 流程图的笔记');
       return;
     }
 
@@ -2233,7 +2188,7 @@ class BatchFileManagerView extends ItemView {
     try {
       mermaid = (await import('mermaid')).default;
       mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' });
-    } catch (e) {
+    } catch {
       new Notice('Mermaid 加载失败');
       return;
     }
@@ -2290,13 +2245,13 @@ class BatchFileManagerView extends ItemView {
           const imgName = `${baseName}-mermaid-${String(i + 1).padStart(3, '0')}.png`;
           imgPath = assetsFolder ? `${assetsFolder}/${imgName}` : imgName;
           await this.app.vault.adapter.writeBinary(imgPath, pngBuffer);
-        } catch (pngErr) {
+        } catch {
           // Canvas taint 时回退到 SVG
           const imgName = `${baseName}-mermaid-${String(i + 1).padStart(3, '0')}.svg`;
           imgPath = assetsFolder ? `${assetsFolder}/${imgName}` : imgName;
           try {
             await this.app.vault.adapter.write(imgPath, svg);
-          } catch (e) {
+          } catch {
             new Notice(`保存图片失败 ${imgPath}`);
             continue;
           }
@@ -2326,7 +2281,7 @@ class BatchFileManagerView extends ItemView {
           await this.app.vault.create(outPath, newContent);
         }
         totalExported++;
-      } catch (e) {
+      } catch {
         new Notice(`创建导出版失败 ${outPath}`);
       }
     }
@@ -2337,7 +2292,7 @@ class BatchFileManagerView extends ItemView {
   /** SVG → PNG，使用 data URL 加载以减少 Canvas taint 风险 */
   private svgToPng(svg: string): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
-      const encoded = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+      const encoded = 'data:image/svg+xml;base64,' + btoa(Array.from(new TextEncoder().encode(svg), b => String.fromCharCode(b)).join(''));
       const img = document.createElement('img');
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -2465,7 +2420,7 @@ class BatchFileManagerView extends ItemView {
         const noteDir = note.parent?.path || '';
 
         // 处理 ![[xxx]] 格式（Obsidian wiki 风格）
-        content = content.replace(/!\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, (match, linkPath, displayPart) => {
+        content = content.replace(/!\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, (match: string, linkPath: string, _displayPart: string) => {
           // 提取文件名（可能包含路径）
           const fileName = linkPath.split('/').pop() || linkPath;
           const file = this.findImageFile(fileName, noteDir, note.path);
@@ -2481,7 +2436,7 @@ class BatchFileManagerView extends ItemView {
         });
 
         // 处理 ![xxx](yyy) 格式（Markdown 风格）
-        content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, linkPath) => {
+        content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match: string, alt: string, linkPath: string) => {
           // 跳过已经是相对路径的（包含 ../ 或 ./）
           if (linkPath.startsWith('../') || linkPath.startsWith('./')) return match;
           // 跳过网络链接
@@ -2537,7 +2492,7 @@ class BatchFileManagerView extends ItemView {
 
         // 处理 ![[xxx]] 格式 - 已经是最简路径，跳过
         // 处理 ![xxx](yyy) 格式
-        content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, linkPath) => {
+        content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match: string, alt: string, linkPath: string) => {
           // 跳过网络链接
           if (linkPath.startsWith('http://') || linkPath.startsWith('https://')) return match;
           
@@ -2583,10 +2538,10 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: '批量文件管理器设置' });
+    new Setting(containerEl).setName('批量文件管理器设置').setHeading();
 
     // 标签设置
-    containerEl.createEl('h3', { text: '标签设置' });
+    new Setting(containerEl).setName('标签设置').setHeading();
 
     new Setting(containerEl)
       .setName('默认标签')
@@ -2613,11 +2568,11 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
         }));
 
     // 图片扫描设置
-    containerEl.createEl('h3', { text: '图片扫描设置' });
+    new Setting(containerEl).setName('图片扫描设置').setHeading();
 
     new Setting(containerEl)
       .setName('扫描外部图片')
-      .setDesc('是否检查外部链接（http/https）的图片')
+      .setDesc('是否检查外部链接（HTTP/HTTPS）的图片')
       .addToggle(toggle => toggle
         .setValue(this.plugin.settings.scanExternalImages)
         .onChange(async (value) => {
@@ -2629,7 +2584,7 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
       .setName('图片扩展名')
       .setDesc('要扫描的图片文件扩展名（用逗号分隔）')
       .addText(text => text
-        .setPlaceholder('png,jpg,jpeg,gif,svg')
+        .setPlaceholder('PNG, JPG, JPEG, GIF, SVG')
         .setValue(this.plugin.settings.imageExtensions)
         .onChange(async (value) => {
           this.plugin.settings.imageExtensions = value;
@@ -2640,7 +2595,7 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
       .setName('图片文件夹')
       .setDesc('图片存储的文件夹路径（多个用逗号分隔，例如: assets,attachments）')
       .addText(text => text
-        .setPlaceholder('assets')
+        .setPlaceholder('Assets')
         .setValue(this.plugin.settings.imageFolders)
         .onChange(async (value) => {
           this.plugin.settings.imageFolders = value;
@@ -2648,13 +2603,13 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
         }));
 
     // 日记归档设置
-    containerEl.createEl('h3', { text: '日记归档' });
+    new Setting(containerEl).setName('日记归档').setHeading();
 
     new Setting(containerEl)
       .setName('日记文件夹')
       .setDesc('日/月日记所在文件夹（如 journals），用于「一键归档日志」「一键还原」')
       .addText(text => text
-        .setPlaceholder('journals')
+        .setPlaceholder('Journals')
         .setValue(this.plugin.settings.journalsFolder)
         .onChange(async (value) => {
           this.plugin.settings.journalsFolder = value;
@@ -2662,7 +2617,7 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
         }));
 
     const donateSection = containerEl.createDiv({ cls: 'plugin-donate-section' });
-    donateSection.createEl('h3', { text: '☕ 请作者喝杯咖啡' });
+    new Setting(donateSection).setName('☕ 请作者喝杯咖啡').setHeading();
     donateSection.createEl('p', { text: '如果这个插件帮助了你，欢迎请作者喝杯咖啡 ☕', cls: 'plugin-donate-desc' });
     const imgWrap = donateSection.createDiv({ cls: 'plugin-donate-qr' });
     imgWrap.createEl('img', { attr: { src: this.plugin.app.vault.adapter.getResourcePath(`${this.plugin.manifest.dir}/assets/wechat-donate.jpg`), alt: '微信打赏', width: '160' } });
@@ -2687,10 +2642,10 @@ export default class BatchFileManagerPlugin extends Plugin {
 
     // 添加命令
     this.addCommand({
-      id: 'open-batch-file-manager',
+      id: 'open',
       name: '打开批量文件管理器',
       callback: () => {
-        this.activateView();
+        void this.activateView();
       }
     });
 
@@ -2700,12 +2655,12 @@ export default class BatchFileManagerPlugin extends Plugin {
     });
   }
 
-  async onunload() {
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_BATCH_MANAGER);
+  onunload() {
+    // cleanup handled by Obsidian
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<BatchFileManagerSettings>);
   }
 
   async saveSettings() {
@@ -2716,7 +2671,7 @@ export default class BatchFileManagerPlugin extends Plugin {
     if (this.app.workspace.getLeavesOfType(VIEW_TYPE_BATCH_MANAGER).length) {
       return;
     }
-    this.app.workspace.getLeftLeaf(false).setViewState({
+    void this.app.workspace.getLeftLeaf(false).setViewState({
       type: VIEW_TYPE_BATCH_MANAGER,
     });
   }
@@ -2739,6 +2694,6 @@ export default class BatchFileManagerPlugin extends Plugin {
       });
     }
 
-    workspace.revealLeaf(leaf);
+    await workspace.revealLeaf(leaf);
   }
 }
