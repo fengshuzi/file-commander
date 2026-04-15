@@ -815,7 +815,7 @@ class BatchFileManagerView extends ItemView {
     this.allFiles.sort((a, b) => a.file.path.localeCompare(b.file.path));
     
     // 提取所有标签
-    await this.extractAllTags();
+    this.extractAllTags();
     
     // 应用所有筛选条件
     this.applyFilters();
@@ -823,7 +823,7 @@ class BatchFileManagerView extends ItemView {
     this.renderView();
   }
 
-  private async extractAllTags() {
+  private extractAllTags() {
     this.availableTags.clear();
     
     for (const item of this.allFiles) {
@@ -989,7 +989,7 @@ class BatchFileManagerView extends ItemView {
     }
   }
 
-  private async deleteSelected() {
+  private deleteSelected() {
     const selected = this.getSelectedFiles();
     if (selected.length === 0) {
       new Notice('请先选择要删除的文件');
@@ -1031,7 +1031,7 @@ class BatchFileManagerView extends ItemView {
     }).open();
   }
 
-  private async moveSelected() {
+  private moveSelected() {
     const selected = this.getSelectedFiles();
     if (selected.length === 0) {
       new Notice('请先选择要移动的文件');
@@ -1074,7 +1074,7 @@ class BatchFileManagerView extends ItemView {
     }).open();
   }
 
-  private async addTagsToSelected() {
+  private addTagsToSelected() {
     const selected = this.getSelectedFiles();
     if (selected.length === 0) {
       new Notice('请先选择要打标签的文件');
@@ -1189,7 +1189,7 @@ class BatchFileManagerView extends ItemView {
     return frontmatter.join('\n') + content;
   }
 
-  private async replaceTagsInSelected() {
+  private replaceTagsInSelected() {
     const selected = this.getSelectedFiles();
     if (selected.length === 0) {
       new Notice('请先选择要替换标签的文件');
@@ -1236,7 +1236,7 @@ class BatchFileManagerView extends ItemView {
     }).open();
   }
 
-  private async renameFrontmatterProperty() {
+  private renameFrontmatterProperty() {
     const selected = this.getSelectedFiles();
     if (selected.length === 0) {
       new Notice('请先选择要修改的文件');
@@ -1376,7 +1376,7 @@ class BatchFileManagerView extends ItemView {
           }
 
           // 检查图片是否存在（内部会同时尝试编码与解码路径）
-          const imageExists = await this.checkImageExists(file, imagePath, imageFolders);
+          const imageExists = this.checkImageExists(file, imagePath, imageFolders);
           
           if (!imageExists) {
             hasBrokenImage = true;
@@ -1566,7 +1566,7 @@ class BatchFileManagerView extends ItemView {
     }
   }
 
-  private async checkImageExists(sourceFile: TFile, imagePath: string, imageFolders: string[]): Promise<boolean> {
+  private checkImageExists(sourceFile: TFile, imagePath: string, imageFolders: string[]): boolean {
     const tryPath = (path: string) => this.app.vault.getAbstractFileByPath(path);
     const pathsToTry = [imagePath, this.safeDecodeUriPath(imagePath)];
     if (pathsToTry[0] === pathsToTry[1]) pathsToTry.pop();
@@ -1699,7 +1699,7 @@ class BatchFileManagerView extends ItemView {
     new Notice(`${scope}发现 ${untaggedFiles.length} 个无标签笔记`);
   }
 
-  private async findOrphanNotes() {
+  private findOrphanNotes() {
     new Notice('正在查找孤立笔记...');
     
     // 如果有选中的文件夹，只在该文件夹中查找
