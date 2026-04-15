@@ -608,7 +608,7 @@ class BatchFileManagerView extends ItemView {
     loadingDiv.setText('正在加载文件...');
 
     // 异步加载文件
-    await this.loadFiles();
+    this.loadFiles();
   }
 
   async onClose() {
@@ -804,7 +804,7 @@ class BatchFileManagerView extends ItemView {
     }
   }
 
-  private async loadFiles() {
+  private loadFiles() {
     const allMarkdownFiles = this.app.vault.getMarkdownFiles();
     this.allFiles = allMarkdownFiles.map(file => ({
       file,
@@ -1012,7 +1012,7 @@ class BatchFileManagerView extends ItemView {
         }
 
         new Notice(`删除完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
-        await this.loadFiles();
+        this.loadFiles();
       })();
     }).open();
   }
@@ -1023,7 +1023,7 @@ class BatchFileManagerView extends ItemView {
         try {
           await this.app.fileManager.trashFile(file);
           new Notice(`已删除: ${file.path}`);
-          await this.loadFiles();
+          this.loadFiles();
         } catch (error) {
           new Notice(`删除失败: ${error instanceof Error ? error.message : String(error)}`);
         }
@@ -1069,7 +1069,7 @@ class BatchFileManagerView extends ItemView {
       }
 
       new Notice(`移动完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
-      await this.loadFiles();
+      this.loadFiles();
       })();
     }).open();
   }
@@ -1231,7 +1231,7 @@ class BatchFileManagerView extends ItemView {
       new Notice(message);
       
       // 刷新文件列表以更新标签显示
-      await this.loadFiles();
+      this.loadFiles();
       })();
     }).open();
   }
@@ -1313,7 +1313,7 @@ class BatchFileManagerView extends ItemView {
       new Notice(message);
       
       // 刷新文件列表
-      await this.loadFiles();
+      this.loadFiles();
       })();
     }).open();
   }
@@ -2040,7 +2040,7 @@ class BatchFileManagerView extends ItemView {
     }
 
     new Notice(`图片重命名完成: 成功 ${totalRenamed}，跳过 ${totalSkipped}，失败 ${totalFailed}`);
-    await this.loadFiles();
+    this.loadFiles();
   }
 
   /** 日文件 → 月文件：将 yyyy-mm-dd.md 合并为 yyyy-mm.md（跳过当前月） */
@@ -2119,7 +2119,7 @@ class BatchFileManagerView extends ItemView {
       }
     }
     new Notice(`一键归档完成: 合并 ${totalMerged} 个月份，删除 ${totalDeleted} 个日文件`);
-    await this.loadFiles();
+    this.loadFiles();
   }
 
   /** 月文件 → 日文件：将 yyyy-mm.md 按 ## yyyy-mm-dd 拆成 yyyy-mm-dd.md */
@@ -2168,7 +2168,7 @@ class BatchFileManagerView extends ItemView {
       await this.app.fileManager.trashFile(mf);
     }
     new Notice(`一键还原完成: 还原 ${totalRestored} 个日文件`);
-    await this.loadFiles();
+    this.loadFiles();
   }
 
   /** 流程图转导出版：渲染 mermaid 代码块为图片，生成新 md（去掉代码块，仅保留图片引用），便于复制到其他网站 */
@@ -2286,7 +2286,7 @@ class BatchFileManagerView extends ItemView {
       }
     }
     new Notice(`流程图转导出版完成: ${totalExported} 个文件`);
-    await this.loadFiles();
+    this.loadFiles();
   }
 
   /** SVG → PNG，使用 data URL 加载以减少 Canvas taint 风险 */
