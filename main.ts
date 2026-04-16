@@ -598,7 +598,7 @@ class BatchFileManagerView extends ItemView {
     return 'files';
   }
 
-  async onOpen() {
+  onOpen(): Promise<void> {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass('file-commander-view');
@@ -609,10 +609,12 @@ class BatchFileManagerView extends ItemView {
 
     // 异步加载文件
     this.loadFiles();
+    return Promise.resolve();
   }
 
-  async onClose() {
+  onClose(): Promise<void> {
     // 清理
+    return Promise.resolve();
   }
 
   private renderView() {
