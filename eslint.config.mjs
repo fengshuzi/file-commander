@@ -11,8 +11,8 @@ export default defineConfig([
       parserOptions: { project: "./tsconfig.json" },
       globals: {
         console: "readonly",
-        setTimeout: "readonly",
-        document: "readonly",
+        activeWindow: "readonly",
+        activeDocument: "readonly",
         btoa: "readonly",
         confirm: "readonly",
       },

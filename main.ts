@@ -86,8 +86,8 @@ class FolderSelectModal extends Modal {
       filteredFolders.forEach(folder => {
         const folderItem = folderListContainer.createDiv({ cls: 'folder-filter-item fc-list-item' });
 
-        folderItem.createEl('span', { text: '📁 ', cls: 'fc-icon-mr' });
-        folderItem.createEl('span', { text: folder.path || '/', cls: 'fc-flex-1' });
+        folderItem.createSpan({ text: '📁 ', cls: 'fc-icon-mr' });
+        folderItem.createSpan({ text: folder.path || '/', cls: 'fc-flex-1' });
 
         folderItem.onclick = () => {
           this.onSubmit(folder);
@@ -187,7 +187,7 @@ class TagFilterModal extends Modal {
           }
         };
 
-        tagItem.createEl('span', { text: tag, cls: 'fc-flex-1' });
+        tagItem.createSpan({ text: tag, cls: 'fc-flex-1' });
 
         tagItem.onclick = () => {
           checkbox.checked = !checkbox.checked;
@@ -285,7 +285,7 @@ class TagInputModal extends Modal {
     };
 
     // 自动聚焦输入框
-    setTimeout(() => {
+    activeWindow.setTimeout(() => {
       input.inputEl.focus();
       input.inputEl.select();
     }, 10);
@@ -352,7 +352,7 @@ class FolderInputModal extends Modal {
     };
 
     // 自动聚焦输入框
-    setTimeout(() => {
+    activeWindow.setTimeout(() => {
       input.inputEl.focus();
     }, 10);
   }
@@ -433,7 +433,7 @@ class ReplaceTagModal extends Modal {
     };
 
     // 自动聚焦第一个输入框
-    setTimeout(() => {
+    activeWindow.setTimeout(() => {
       oldTagInput.inputEl.focus();
     }, 10);
   }
@@ -520,7 +520,7 @@ class RenameFrontmatterPropertyModal extends Modal {
     };
 
     // 自动聚焦第一个输入框
-    setTimeout(() => {
+    activeWindow.setTimeout(() => {
       oldPropertyInput.inputEl.focus();
     }, 10);
   }
@@ -704,13 +704,13 @@ class BatchFileManagerView extends ItemView {
     // 标签筛选显示区域
     if (this.selectedTags.size > 0) {
       const tagFilterDiv = container.createDiv({ cls: 'batch-manager-tag-filter' });
-      tagFilterDiv.createEl('span', { text: '当前筛选: ', cls: 'tag-filter-label' });
-      
+      tagFilterDiv.createSpan({ text: '当前筛选: ', cls: 'tag-filter-label' });
+
       this.selectedTags.forEach(tag => {
-        const tagBadge = tagFilterDiv.createEl('span', { cls: 'tag-badge' });
+        const tagBadge = tagFilterDiv.createSpan({ cls: 'tag-badge' });
         tagBadge.setText(tag);
-        
-        const removeBtn = tagBadge.createEl('span', { text: '×', cls: 'tag-remove' });
+
+        const removeBtn = tagBadge.createSpan({ text: '×', cls: 'tag-remove' });
         removeBtn.onclick = () => {
           this.selectedTags.delete(tag);
           this.filterFilesByTags();
@@ -730,9 +730,9 @@ class BatchFileManagerView extends ItemView {
     if (this.selectedFolder) {
       const folderFilterDiv = container.createDiv({ cls: 'batch-manager-folder-filter fc-folder-filter-bar' });
       
-      folderFilterDiv.createEl('span', { text: '📁 当前文件夹: ', cls: 'folder-filter-label' });
-      
-      const folderPath = folderFilterDiv.createEl('span', { cls: 'folder-path fc-folder-path' });
+      folderFilterDiv.createSpan({ text: '📁 当前文件夹: ', cls: 'folder-filter-label' });
+
+      const folderPath = folderFilterDiv.createSpan({ cls: 'folder-path fc-folder-path' });
       folderPath.setText(this.selectedFolder.path || '/');
       
       const clearFolderBtn = folderFilterDiv.createEl('button', { text: '清除', cls: 'clear-filter-btn' });
@@ -2295,9 +2295,9 @@ class BatchFileManagerView extends ItemView {
   private svgToPng(svg: string): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
       const encoded = 'data:image/svg+xml;base64,' + btoa(Array.from(new TextEncoder().encode(svg), b => String.fromCharCode(b)).join(''));
-      const img = document.createElement('img');
+      const img = activeDocument.createElement('img');
       img.onload = () => {
-        const canvas = document.createElement('canvas');
+        const canvas = activeDocument.createElement('canvas');
         const w = img.naturalWidth || 800, h = img.naturalHeight || 600;
         const minSide = 1200;
         const scale = Math.max(1, minSide / Math.max(w, h));
