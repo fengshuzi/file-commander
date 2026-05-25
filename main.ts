@@ -2295,9 +2295,9 @@ class BatchFileManagerView extends ItemView {
   private svgToPng(svg: string): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
       const encoded = 'data:image/svg+xml;base64,' + btoa(Array.from(new TextEncoder().encode(svg), b => String.fromCharCode(b)).join(''));
-      const img = activeDocument.createElement('img');
+      const img = activeDocument.createEl('img');
       img.onload = () => {
-        const canvas = activeDocument.createElement('canvas');
+        const canvas = activeDocument.createEl('canvas');
         const w = img.naturalWidth || 800, h = img.naturalHeight || 600;
         const minSide = 1200;
         const scale = Math.max(1, minSide / Math.max(w, h));
