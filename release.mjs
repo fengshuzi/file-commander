@@ -37,6 +37,7 @@ try {
   // 4. 收集 dist 目录中的文件
   const files = ['dist/main.js', 'dist/manifest.json'];
   if (existsSync('dist/styles.css')) files.push('dist/styles.css');
+  if (existsSync('dist/assets/wechat-donate.jpg')) files.push('dist/assets/wechat-donate.jpg');
 
   console.log(`📦 将上传文件: ${files.join(', ')}\n`);
 

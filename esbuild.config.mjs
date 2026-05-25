@@ -45,6 +45,19 @@ if (prod) {
   if (!existsSync('dist')) mkdirSync('dist');
   copyFileSync('manifest.json', 'dist/manifest.json');
   if (existsSync('styles.css')) copyFileSync('styles.css', 'dist/styles.css');
+
+  // Copy assets
+  if (existsSync('assets')) {
+    if (!existsSync('dist/assets')) mkdirSync('dist/assets', { recursive: true });
+    ['wechat-donate.jpg'].forEach(f => {
+      const src = `assets/${f}`;
+      if (existsSync(src)) {
+        copyFileSync(src, `dist/assets/${f}`);
+        console.log(`Copied ${src} -> dist/assets/${f}`);
+      }
+    });
+  }
+
   console.log('Build output: dist/');
   process.exit(0);
 } else {
