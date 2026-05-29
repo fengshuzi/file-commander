@@ -27,7 +27,12 @@
 
 ## 安装方法
 
-### 方式一：从 GitHub Release 安装（推荐）
+### 方式一：Obsidian 社区市场安装（推荐）
+
+打开 Obsidian 设置 → 第三方插件 → 浏览，搜索 **File Commander** 或 **fengshuzi** 即可安装。
+
+
+### 方式二：从 GitHub Release 安装（推荐）
 
 1. 前往 [Releases](../../releases) 页面下载最新版本
 2. 下载以下文件：
@@ -39,7 +44,7 @@
 5. 重启 Obsidian 或刷新插件列表
 6. 在设置中启用"File Commander"插件
 
-### 方式二：手动安装
+### 方式三：手动安装
 
 ```bash
 cd /path/to/your/vault/.obsidian/plugins
