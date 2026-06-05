@@ -6,13 +6,22 @@
     "module": "ESNext",
     "target": "ES6",
     "allowJs": true,
-    "noImplicitAny": true,
     "moduleResolution": "node",
     "importHelpers": true,
     "isolatedModules": true,
-    "lib": ["DOM", "ES5", "ES6", "ES7"],
-    "skipLibCheck": true
+    "lib": [
+      "DOM",
+      "ES5",
+      "ES6",
+      "ES7"
+    ],
+    "skipLibCheck": true,
+    "strict": true
   },
-  "include": ["main.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "main.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
