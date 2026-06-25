@@ -65,8 +65,10 @@
 
 .batch-manager-file-item input[type="checkbox"] {
   cursor: pointer;
+  flex: 0 0 16px;
   width: 16px;
   height: 16px;
+  margin: 0;
 }
 
 .batch-manager-file-name {
