@@ -455,3 +455,85 @@
 .fc-toolbar-pill:hover {
   background: var(--background-modifier-hover);
 }
+
+/* === FC table view === */
+.fc-toolbar-pill.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.fc-table-wrap {
+  flex: 1;
+  overflow: auto;
+}
+
+.fc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.fc-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--background-secondary);
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+  white-space: nowrap;
+}
+
+.fc-table-row {
+  cursor: pointer;
+  transition: var(--fc-transition, 150ms ease-in-out);
+}
+
+.fc-table-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.fc-table-row td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  vertical-align: middle;
+}
+
+.fc-table-cell-check {
+  width: 32px;
+  text-align: center;
+}
+
+.fc-table-cell-name {
+  font-weight: 500;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fc-table-cell-tags {
+  color: var(--text-muted);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fc-table-cell-folder {
+  color: var(--text-muted);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fc-table-cell-size,
+.fc-table-cell-mtime {
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

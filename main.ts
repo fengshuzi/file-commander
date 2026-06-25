@@ -581,6 +581,7 @@ class BatchFileManagerView extends ItemView {
   private availableTags: Set<string> = new Set();
   private selectedTags: Set<string> = new Set();
   private searchQuery: string = '';
+  private viewMode: 'list' | 'table' = 'list';
 
   constructor(leaf: WorkspaceLeaf, plugin: BatchFileManagerPlugin) {
     super(leaf);
@@ -694,6 +695,18 @@ class BatchFileManagerView extends ItemView {
     const selectAllBtn = toolbar.createEl('button', { text: '全选', cls: 'fc-toolbar-pill' });
     selectAllBtn.onclick = () => this.selectAll();
 
+    // 视图切换
+    const listViewBtn = toolbar.createEl('button', {
+      text: '☰ 列表',
+      cls: `fc-toolbar-pill ${this.viewMode === 'list' ? 'is-active' : ''}`
+    });
+    listViewBtn.onclick = () => { this.viewMode = 'list'; this.renderView(); };
+    const tableViewBtn = toolbar.createEl('button', {
+      text: '▦ 表格',
+      cls: `fc-toolbar-pill ${this.viewMode === 'table' ? 'is-active' : ''}`
+    });
+    tableViewBtn.onclick = () => { this.viewMode = 'table'; this.renderView(); };
+
     // 查找功能按钮
     const findBrokenImagesBtn = toolbar.createEl('button', { text: '查找失效图片' });
     findBrokenImagesBtn.onclick = () => this.findBrokenImages();
@@ -793,7 +806,14 @@ class BatchFileManagerView extends ItemView {
 
   private renderFileList(container: HTMLElement) {
     container.empty();
+    if (this.viewMode === 'table') {
+      this.renderFileListTable(container);
+    } else {
+      this.renderFileListFlat(container);
+    }
+  }
 
+  private renderFileListFlat(container: HTMLElement) {
     if (this.files.length === 0) {
       container.createDiv({ text: '没有找到文件', cls: 'batch-manager-empty' });
       return;
@@ -847,6 +867,78 @@ class BatchFileManagerView extends ItemView {
         menu.showAtMouseEvent(e);
       };
     }
+  }
+
+  private renderFileListTable(container: HTMLElement) {
+    if (this.files.length === 0) {
+      container.createDiv({ text: '没有找到文件', cls: 'batch-manager-empty' });
+      return;
+    }
+    const tableWrap = container.createDiv({ cls: 'fc-table-wrap' });
+    const table = tableWrap.createEl('table', { cls: 'fc-table' });
+    const thead = table.createEl('thead');
+    const headRow = thead.createEl('tr');
+    headRow.createEl('th', { text: '' });
+    headRow.createEl('th', { text: '文件' });
+    headRow.createEl('th', { text: '标签' });
+    headRow.createEl('th', { text: '文件夹' });
+    headRow.createEl('th', { text: '大小' });
+    headRow.createEl('th', { text: '修改时间' });
+    const tbody = table.createEl('tbody');
+    for (const item of this.files) {
+      const file = item.file;
+      const tr = tbody.createEl('tr', { cls: 'fc-table-row' });
+      const checkTd = tr.createEl('td', { cls: 'fc-table-cell-check' });
+      const checkbox = checkTd.createEl('input', { type: 'checkbox' });
+      checkbox.checked = item.selected;
+      checkbox.onchange = (e) => {
+        e.stopPropagation();
+        item.selected = checkbox.checked;
+        this.updateCount();
+      };
+      checkbox.onclick = (e) => e.stopPropagation();
+      const nameTd = tr.createEl('td', { cls: 'fc-table-cell-name' });
+      nameTd.setText(file.name);
+      nameTd.title = file.path;
+      const tagsTd = tr.createEl('td', { cls: 'fc-table-cell-tags' });
+      const cache = this.app.metadataCache.getFileCache(file);
+      const fmTags: unknown = cache?.frontmatter?.tags;
+      const inlineTags: string[] = [];
+      if (Array.isArray(fmTags)) inlineTags.push(...fmTags.filter((t): t is string => typeof t === 'string'));
+      else if (typeof fmTags === 'string') inlineTags.push(...fmTags.split(/\s+/).filter(Boolean));
+      if (cache?.tags) for (const t of cache.tags) inlineTags.push(t.tag.replace(/^#/, ''));
+      tagsTd.setText(inlineTags.length ? inlineTags.map(t => t.startsWith('#') ? t : '#' + t).join(' ') : '—');
+      const folderTd = tr.createEl('td', { cls: 'fc-table-cell-folder' });
+      folderTd.setText(file.parent?.path || '/');
+      const sizeTd = tr.createEl('td', { cls: 'fc-table-cell-size' });
+      const size = file.stat?.size ?? 0;
+      sizeTd.setText(this.formatSize(size));
+      const mtimeTd = tr.createEl('td', { cls: 'fc-table-cell-mtime' });
+      mtimeTd.setText(this.formatMtime(file.stat?.mtime));
+      tr.onclick = () => { void this.app.workspace.getLeaf().openFile(file); };
+      tr.oncontextmenu = (e) => {
+        e.preventDefault();
+        const menu = new Menu();
+        menu.addItem(m => m.setTitle('打开').setIcon('file').onClick(() => { void this.app.workspace.getLeaf().openFile(file); }));
+        menu.addItem(m => m.setTitle('删除').setIcon('trash').onClick(() => { void this.deleteFile(file); }));
+        menu.showAtMouseEvent(e);
+      };
+    }
+  }
+
+  private formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  private formatMtime(ms: number | undefined): string {
+    if (!ms) return '—';
+    const d = new Date(ms);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   private loadFiles() {
