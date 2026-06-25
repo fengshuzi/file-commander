@@ -343,3 +343,50 @@
 .fc-stats-refresh:hover {
   background: var(--background-modifier-hover);
 }
+
+/* === FC search row === */
+.fc-search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+}
+
+.fc-search-icon {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.fc-search-input {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--fc-radius-sm, 6px);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  outline: none;
+  transition: var(--fc-transition, 150ms ease-in-out);
+}
+
+.fc-search-input:focus {
+  border-color: var(--interactive-accent);
+}
+
+.fc-search-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: var(--fc-radius-sm, 6px);
+}
+
+.fc-search-clear:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}

@@ -580,6 +580,7 @@ class BatchFileManagerView extends ItemView {
   private plugin: BatchFileManagerPlugin;
   private availableTags: Set<string> = new Set();
   private selectedTags: Set<string> = new Set();
+  private searchQuery: string = '';
 
   constructor(leaf: WorkspaceLeaf, plugin: BatchFileManagerPlugin) {
     super(leaf);
@@ -633,6 +634,29 @@ class BatchFileManagerView extends ItemView {
     stats.createSpan({ text: ' / ' + String(this.files.length), cls: 'fc-stats-label' });
     const refreshStatsBtn = stats.createEl('button', { text: '刷新', cls: 'fc-stats-refresh' });
     refreshStatsBtn.onclick = () => this.loadFiles();
+
+    // 搜索栏
+    const searchRow = container.createDiv({ cls: 'fc-search-row' });
+    searchRow.createSpan({ text: '🔍', cls: 'fc-search-icon' });
+    const searchInput = searchRow.createEl('input', {
+      type: 'text',
+      cls: 'fc-search-input',
+      attr: { placeholder: '搜索文件名、标签、frontmatter…' }
+    });
+    searchInput.value = this.searchQuery;
+    searchInput.addEventListener('input', () => {
+      this.searchQuery = searchInput.value.trim().toLowerCase();
+      this.applyFilters();
+      this.renderView();
+    });
+    if (this.searchQuery) {
+      const clearBtn = searchRow.createEl('button', { text: '×', cls: 'fc-search-clear', attr: { 'aria-label': '清除搜索' } });
+      clearBtn.onclick = () => {
+        this.searchQuery = '';
+        this.applyFilters();
+        this.renderView();
+      };
+    }
 
     // 工具栏
     const toolbar = container.createDiv({ cls: 'batch-manager-toolbar' });
@@ -896,6 +920,25 @@ class BatchFileManagerView extends ItemView {
     if (this.selectedTags.size > 0) {
       filteredFiles = filteredFiles.filter(item => {
         return this.fileHasAnyTag(item.file, this.selectedTags);
+      });
+    }
+
+    // 应用搜索筛选
+    if (this.searchQuery) {
+      const query = this.searchQuery;
+      filteredFiles = filteredFiles.filter(item => {
+        const file = item.file;
+        if (file.path.toLowerCase().includes(query)) return true;
+        if (file.name.toLowerCase().includes(query)) return true;
+        const cache = this.app.metadataCache.getFileCache(file);
+        if (cache?.frontmatter) {
+          for (const key of Object.keys(cache.frontmatter)) {
+            const value: unknown = cache.frontmatter[key];
+            if (typeof value === 'string' && value.toLowerCase().includes(query)) return true;
+            if (Array.isArray(value) && value.some(v => String(v).toLowerCase().includes(query))) return true;
+          }
+        }
+        return false;
       });
     }
 
