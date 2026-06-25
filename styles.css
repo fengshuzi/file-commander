@@ -298,3 +298,48 @@
 .folder-filter-item:hover {
   background-color: var(--background-modifier-hover);
 }
+/* === FC stats strip === */
+.fc-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  flex-wrap: wrap;
+}
+
+.fc-stats-icon {
+  font-size: 14px;
+}
+
+.fc-stats-label {
+  color: var(--text-muted);
+}
+
+.fc-stats-value {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.fc-stats-selected {
+  color: var(--interactive-accent);
+}
+
+.fc-stats-refresh {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: var(--fc-radius-sm, 6px);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+  transition: var(--fc-transition, 150ms ease-in-out);
+}
+
+.fc-stats-refresh:hover {
+  background: var(--background-modifier-hover);
+}

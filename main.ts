@@ -621,6 +621,19 @@ class BatchFileManagerView extends ItemView {
     const container = this.containerEl.children[1];
     container.empty();
 
+    // 统计条
+    const stats = container.createDiv({ cls: 'fc-stats' });
+    stats.createSpan({ text: '📄', cls: 'fc-stats-icon' });
+    stats.createSpan({ text: '笔记 ', cls: 'fc-stats-label' });
+    stats.createSpan({ text: String(this.allFiles.length), cls: 'fc-stats-value' });
+    stats.createSpan({ text: ' · 🏷 标签 ', cls: 'fc-stats-label' });
+    stats.createSpan({ text: String(this.availableTags.size), cls: 'fc-stats-value' });
+    stats.createSpan({ text: ' · 已选 ', cls: 'fc-stats-label' });
+    stats.createSpan({ text: String(this.getSelectedCount()), cls: 'fc-stats-value fc-stats-selected' });
+    stats.createSpan({ text: ' / ' + String(this.files.length), cls: 'fc-stats-label' });
+    const refreshStatsBtn = stats.createEl('button', { text: '刷新', cls: 'fc-stats-refresh' });
+    refreshStatsBtn.onclick = () => this.loadFiles();
+
     // 工具栏
     const toolbar = container.createDiv({ cls: 'batch-manager-toolbar' });
     
