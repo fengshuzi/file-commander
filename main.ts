@@ -1145,7 +1145,7 @@ class BatchFileManagerView extends ItemView {
     }
     const selected = this.getSelectedCount();
     const bulkBar = this.containerEl.querySelector('.fc-bulk-bar');
-    if (bulkBar instanceof HTMLElement) {
+    if (typeof bulkBar?.instanceOf === 'function' ? bulkBar.instanceOf(HTMLElement) : bulkBar instanceof HTMLElement) {
       bulkBar.classList.toggle('is-visible', selected > 0);
     }
     const bulkCount = this.containerEl.querySelector('.fc-bulk-count');
