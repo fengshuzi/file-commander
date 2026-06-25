@@ -658,31 +658,41 @@ class BatchFileManagerView extends ItemView {
       };
     }
 
+    // 浮动批量操作条（仅在有选中时显示）
+    const bulkBar = container.createDiv({
+      cls: `fc-bulk-bar ${this.getSelectedCount() > 0 ? 'is-visible' : ''}`
+    });
+    bulkBar.createSpan({ text: `已选 ${this.getSelectedCount()} 项`, cls: 'fc-bulk-count' });
+    const bulkActions = bulkBar.createDiv({ cls: 'fc-bulk-actions' });
+    const bulkTagBtn = bulkActions.createEl('button', { text: '🏷 标签', cls: 'fc-bulk-btn' });
+    bulkTagBtn.onclick = () => this.addTagsToSelected();
+    const bulkMoveBtn = bulkActions.createEl('button', { text: '📂 移动', cls: 'fc-bulk-btn' });
+    bulkMoveBtn.onclick = () => this.moveSelected();
+    const bulkPropBtn = bulkActions.createEl('button', { text: '✎ 属性', cls: 'fc-bulk-btn' });
+    bulkPropBtn.onclick = () => this.renameFrontmatterProperty();
+    const bulkMoreBtn = bulkActions.createEl('button', { text: '⋯ 更多', cls: 'fc-bulk-btn fc-bulk-more' });
+    bulkMoreBtn.onclick = () => {
+      const menu = new Menu();
+      menu.addItem(item => item.setTitle('替换标签').setIcon('replace').onClick(() => this.replaceTagsInSelected()));
+      menu.addItem(item => item.setTitle('图片重命名（文件名-001）').setIcon('image-file').onClick(() => { void this.renameImagesToNoteName(); }));
+      menu.addItem(item => item.setTitle('图片转相对路径').setIcon('image-gif').onClick(() => { void this.convertImageLinksToRelativePath(); }));
+      menu.addItem(item => item.setTitle('图片转最简路径').setIcon('image').onClick(() => { void this.convertImageLinksToSimplePath(); }));
+      menu.addItem(item => item.setTitle('一键归档日志').setIcon('archive').onClick(() => { void this.mergeJournalsToMonth(); }));
+      menu.addItem(item => item.setTitle('一键还原日志').setIcon('switch').onClick(() => { void this.monthToDaily(); }));
+      menu.addItem(item => item.setTitle('流程图转导出版').setIcon('git-branch').onClick(() => { void this.mermaidToExportMd(); }));
+      menu.addSeparator();
+      menu.addItem(item => item.setTitle('删除选中').setIcon('trash').onClick(() => this.deleteSelected()));
+      menu.showAtMouseEvent(new MouseEvent('click'));
+    };
+    const bulkClearBtn = bulkActions.createEl('button', { text: '取消选择', cls: 'fc-bulk-btn fc-bulk-clear' });
+    bulkClearBtn.onclick = () => this.deselectAll();
+
     // 工具栏
     const toolbar = container.createDiv({ cls: 'batch-manager-toolbar' });
-    
-    // 全选/取消全选
-    const selectAllBtn = toolbar.createEl('button', { text: '全选' });
+
+    // 工具栏首部：全选
+    const selectAllBtn = toolbar.createEl('button', { text: '全选', cls: 'fc-toolbar-pill' });
     selectAllBtn.onclick = () => this.selectAll();
-
-    const deselectAllBtn = toolbar.createEl('button', { text: '取消全选' });
-    deselectAllBtn.onclick = () => this.deselectAll();
-
-    // 批量操作按钮
-    const addTagBtn = toolbar.createEl('button', { text: '批量打标签' });
-    addTagBtn.onclick = () => this.addTagsToSelected();
-
-    const replaceTagBtn = toolbar.createEl('button', { text: '批量替换标签' });
-    replaceTagBtn.onclick = () => this.replaceTagsInSelected();
-
-    const renamePropertyBtn = toolbar.createEl('button', { text: '重命名元数据属性' });
-    renamePropertyBtn.onclick = () => this.renameFrontmatterProperty();
-
-    const deleteBtn = toolbar.createEl('button', { text: '删除选中', cls: 'mod-warning' });
-    deleteBtn.onclick = () => this.deleteSelected();
-
-    const moveBtn = toolbar.createEl('button', { text: '移动选中' });
-    moveBtn.onclick = () => this.moveSelected();
 
     // 查找功能按钮
     const findBrokenImagesBtn = toolbar.createEl('button', { text: '查找失效图片' });
@@ -729,10 +739,6 @@ class BatchFileManagerView extends ItemView {
     // 按文件夹筛选按钮
     const filterByFolderBtn = toolbar.createEl('button', { text: '按文件夹筛选' });
     filterByFolderBtn.onclick = () => this.showFolderSelectModal();
-
-    // 刷新按钮
-    const refreshBtn = toolbar.createEl('button', { text: '刷新' });
-    refreshBtn.onclick = () => this.loadFiles();
 
     // 选中计数
     const countDiv = toolbar.createDiv({ cls: 'batch-manager-count' });
@@ -1044,6 +1050,19 @@ class BatchFileManagerView extends ItemView {
     const countDiv = this.containerEl.querySelector('.batch-manager-count');
     if (countDiv) {
       countDiv.setText(`已选中: ${this.getSelectedCount()} / ${this.files.length}`);
+    }
+    const selected = this.getSelectedCount();
+    const bulkBar = this.containerEl.querySelector('.fc-bulk-bar');
+    if (bulkBar instanceof HTMLElement) {
+      bulkBar.classList.toggle('is-visible', selected > 0);
+    }
+    const bulkCount = this.containerEl.querySelector('.fc-bulk-count');
+    if (bulkCount) {
+      bulkCount.setText(`已选 ${selected} 项`);
+    }
+    const statsSelected = this.containerEl.querySelector('.fc-stats-selected');
+    if (statsSelected) {
+      statsSelected.setText(String(selected));
     }
   }
 

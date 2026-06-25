@@ -390,3 +390,68 @@
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+
+/* === FC floating bulk action bar === */
+.fc-bulk-bar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-wrap: wrap;
+}
+
+.fc-bulk-bar.is-visible {
+  display: flex;
+}
+
+.fc-bulk-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--interactive-accent);
+  margin-right: 4px;
+}
+
+.fc-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.fc-bulk-btn {
+  padding: 5px 10px;
+  font-size: 13px;
+  border-radius: var(--fc-radius-sm, 6px);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+  transition: var(--fc-transition, 150ms ease-in-out);
+}
+
+.fc-bulk-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.fc-bulk-clear {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+/* Toolbar pill style for the remaining few toolbar buttons (select-all etc.) */
+.fc-toolbar-pill {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: var(--fc-radius-sm, 6px);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+  transition: var(--fc-transition, 150ms ease-in-out);
+}
+
+.fc-toolbar-pill:hover {
+  background: var(--background-modifier-hover);
+}
