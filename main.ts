@@ -27,6 +27,33 @@ const DEFAULT_SETTINGS: BatchFileManagerSettings = {
   autoMigrateYesterdayTasks: false
 };
 
+function pad2(value: number): string {
+  return value < 10 ? `0${value}` : String(value);
+}
+
+function pad3(value: number): string {
+  if (value < 10) return `00${value}`;
+  if (value < 100) return `0${value}`;
+  return String(value);
+}
+
+function recordEntries<K extends string, V>(record: Record<K, V>): Array<[K, V]> {
+  return Object.entries(record) as Array<[K, V]>;
+}
+
+function getImagePathFromMatch(match: RegExpMatchArray): string | undefined {
+  const wikiPath = match[1];
+  const mdPath = match[3];
+  if (wikiPath) return wikiPath;
+  if (mdPath) return mdPath;
+  return undefined;
+}
+
+interface MermaidApi {
+  initialize: (config: { startOnLoad?: boolean; securityLevel?: string }) => void;
+  render: (id: string, code: string) => Promise<{ svg: string }>;
+}
+
 class FolderSelectModal extends Modal {
   folders: TFolder[];
   onSubmit: (folder: TFolder | null) => void;
@@ -287,7 +314,7 @@ class TagInputModal extends Modal {
     };
 
     // 自动聚焦输入框
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       input.inputEl.focus();
       input.inputEl.select();
     }, 10);
@@ -354,7 +381,7 @@ class FolderInputModal extends Modal {
     };
 
     // 自动聚焦输入框
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       input.inputEl.focus();
     }, 10);
   }
@@ -435,7 +462,7 @@ class ReplaceTagModal extends Modal {
     };
 
     // 自动聚焦第一个输入框
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       oldTagInput.inputEl.focus();
     }, 10);
   }
@@ -522,7 +549,7 @@ class RenameFrontmatterPropertyModal extends Modal {
     };
 
     // 自动聚焦第一个输入框
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       oldPropertyInput.inputEl.focus();
     }, 10);
   }
@@ -945,8 +972,8 @@ class BatchFileManagerView extends ItemView {
     if (!ms) return '—';
     const d = new Date(ms);
     const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const m = pad2(d.getMonth() + 1);
+    const day = pad2(d.getDate());
     return `${y}-${m}-${day}`;
   }
 
@@ -1520,17 +1547,14 @@ class BatchFileManagerView extends ItemView {
     for (const file of allMarkdownFiles) {
       try {
         const content = await this.app.vault.read(file);
-        const matches = content.matchAll(imageRegex);
         let hasBrokenImage = false;
         
-        for (const match of matches) {
-          // match[1] 是 ![[]] 格式的图片路径
-          // match[3] 是 ![]() 格式的图片路径
-          let imagePath = match[1] || match[3];
-          if (!imagePath) continue;
-          
+        for (const match of content.matchAll(imageRegex)) {
+          const imagePathRaw = getImagePathFromMatch(match);
+          if (!imagePathRaw) continue;
+
           // 移除可能的尺寸参数 (例如: image.png|100)
-          imagePath = imagePath.split('|')[0].trim();
+          let imagePath = imagePathRaw.split('|')[0].trim();
           // 支持 URL 编码的路径（如 %20 -> 空格），避免误判为失效
           const imagePathDecoded = this.safeDecodeUriPath(imagePath);
 
@@ -2151,13 +2175,13 @@ class BatchFileManagerView extends ItemView {
         let num = 1;
         while (usedNumbers.has(num)) num++;
         usedNumbers.add(num);
-        const newName = `${baseName}-${String(num).padStart(3, '0')}.${ext}`;
+        const newName = `${baseName}-${pad3(num)}.${ext}`;
         const newPath = imgFolderPath ? `${imgFolderPath}/${newName}` : newName;
 
         if (img.name === newName) {
           totalSkipped++;
           // 文件已改名，但链接可能仍是旧名（如相对路径 ../assets/旧 名.png），需单独更新
-          const oldNameForLink = `${note.basename}-${String(num).padStart(3, '0')}.${ext}`;
+          const oldNameForLink = `${note.basename}-${pad3(num)}.${ext}`;
           if (oldNameForLink !== newName) {
             await this.updateImageLinksInAllMd(oldNameForLink, newName);
           }
@@ -2233,7 +2257,7 @@ class BatchFileManagerView extends ItemView {
     const sectionHeader = /^(?:- )?## (\d{4}-\d{2}-\d{2})\s*$/gm;
 
     const now = new Date();
-    const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentYm = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
 
     const monthEntries: Record<string, { dateStr: string; content: string }[]> = {};
     const monthDeletes: Record<string, TFile[]> = {};
@@ -2281,7 +2305,7 @@ class BatchFileManagerView extends ItemView {
       for (const { dateStr, content } of monthEntries[month]) {
         existing[dateStr] = content;
       }
-      const entries = Object.entries(existing)
+      const entries = recordEntries(existing)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([d, c]) => `## ${d}\n\n${c}\n\n`);
       const body = entries.join('\n');
@@ -2303,7 +2327,7 @@ class BatchFileManagerView extends ItemView {
 
 
   /** 迁移昨天日记中的未完成任务到今天日记 */
-  private async migrateYesterdayTasks() {
+  async migrateYesterdayTasks() {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
@@ -2338,8 +2362,8 @@ class BatchFileManagerView extends ItemView {
 
   private formatJournalDate(d: Date): string {
     const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const m = pad2(d.getMonth() + 1);
+    const day = pad2(d.getDate());
     return `${y}-${m}-${day}`;
   }
 
@@ -2494,9 +2518,10 @@ class BatchFileManagerView extends ItemView {
     const MERMAID_BLOCK_RE = /^```mermaid\s*\n([\s\S]*?)```\s*$/gm;
 
     let renderId = 0;
-    let mermaid: { initialize: (c: { startOnLoad?: boolean; securityLevel?: string }) => void; render: (id: string, code: string) => Promise<{ svg: string }> };
+    let mermaid: MermaidApi;
     try {
-      mermaid = (await import('mermaid')).default;
+      const mod = (await import('mermaid')) as { default: MermaidApi };
+      mermaid = mod.default;
       mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' });
     } catch {
       new Notice('Mermaid 加载失败');
@@ -2552,12 +2577,12 @@ class BatchFileManagerView extends ItemView {
         let imgPath: string;
         try {
           const pngBuffer = await this.svgToPng(svg);
-          const imgName = `${baseName}-mermaid-${String(i + 1).padStart(3, '0')}.png`;
+          const imgName = `${baseName}-mermaid-${pad3(i + 1)}.png`;
           imgPath = assetsFolder ? `${assetsFolder}/${imgName}` : imgName;
           await this.app.vault.adapter.writeBinary(imgPath, pngBuffer);
         } catch {
           // Canvas taint 时回退到 SVG
-          const imgName = `${baseName}-mermaid-${String(i + 1).padStart(3, '0')}.svg`;
+          const imgName = `${baseName}-mermaid-${pad3(i + 1)}.svg`;
           imgPath = assetsFolder ? `${assetsFolder}/${imgName}` : imgName;
           try {
             await this.app.vault.adapter.write(imgPath, svg);
@@ -2973,7 +2998,7 @@ export default class BatchFileManagerPlugin extends Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.initLeaf();
       if (this.settings.autoMigrateYesterdayTasks) {
-        void this.migrateYesterdayTasks();
+        this.runAutoMigrateYesterdayTasks();
       }
     });
   }
@@ -2997,6 +3022,17 @@ export default class BatchFileManagerPlugin extends Plugin {
     void this.app.workspace.getLeftLeaf(false).setViewState({
       type: VIEW_TYPE_BATCH_MANAGER,
     });
+  }
+
+  runAutoMigrateYesterdayTasks(): void {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BATCH_MANAGER);
+    for (const leaf of leaves) {
+      const view = leaf.view;
+      if (view instanceof BatchFileManagerView) {
+        void view.migrateYesterdayTasks();
+        return;
+      }
+    }
   }
 
   async activateView() {
