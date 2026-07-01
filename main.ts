@@ -14,6 +14,7 @@ interface BatchFileManagerSettings {
   imageExtensions: string;
   imageFolders: string; // 图片文件夹列表，用逗号分隔
   journalsFolder: string; // 日记文件夹路径，用于一键归档/还原
+  autoMigrateYesterdayTasks: boolean; // 启动时自动迁移昨天任务到今天
 }
 
 const DEFAULT_SETTINGS: BatchFileManagerSettings = {
@@ -22,7 +23,8 @@ const DEFAULT_SETTINGS: BatchFileManagerSettings = {
   scanExternalImages: false,
   imageExtensions: 'png,jpg,jpeg,gif,svg,webp,bmp',
   imageFolders: 'assets',
-  journalsFolder: 'journals'
+  journalsFolder: 'journals',
+  autoMigrateYesterdayTasks: false
 };
 
 class FolderSelectModal extends Modal {
@@ -740,6 +742,13 @@ class BatchFileManagerView extends ItemView {
 
     const splitJournalsBtn = toolbar.createEl('button', { text: '一键还原日志' });
     splitJournalsBtn.onclick = () => this.monthToDaily();
+
+    // 任务迁移
+    const migrateYesterdayBtn = toolbar.createEl('button', { text: '迁移昨日任务到今天' });
+    migrateYesterdayBtn.onclick = () => { void this.migrateYesterdayTasks(); };
+
+    const migrateAllTasksBtn = toolbar.createEl('button', { text: '迁移所有任务到今天' });
+    migrateAllTasksBtn.onclick = () => { void this.migrateAllTasksToToday(); };
 
     // 流程图转导出版
     const mermaidExportBtn = toolbar.createEl('button', { text: '流程图转导出版' });
@@ -2291,6 +2300,138 @@ class BatchFileManagerView extends ItemView {
     this.loadFiles();
   }
 
+
+
+  /** 迁移昨天日记中的未完成任务到今天日记 */
+  private async migrateYesterdayTasks() {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const todayStr = this.formatJournalDate(today);
+    const yesterdayStr = this.formatJournalDate(yesterday);
+    await this.migrateTasksBetweenDates(yesterdayStr, todayStr);
+  }
+
+  /** 迁移所有历史日记中的未完成任务到今天日记 */
+  private async migrateAllTasksToToday() {
+    const today = new Date();
+    const todayStr = this.formatJournalDate(today);
+    const dir = this.plugin.settings.journalsFolder?.trim() || 'journals';
+    const folder = this.app.vault.getAbstractFileByPath(dir);
+    if (!folder || !(folder instanceof TFolder)) {
+      new Notice(`日记文件夹不存在: ${dir}`);
+      return;
+    }
+    const dailyPattern = /^\d{4}-\d{2}-\d{2}\.md$/;
+    let total = 0;
+    for (const child of folder.children) {
+      if (!(child instanceof TFile)) continue;
+      if (!dailyPattern.test(child.name)) continue;
+      const dateStr = child.name.replace(/\.md$/, '');
+      if (dateStr === todayStr) continue;
+      const count = await this.migrateTasksBetweenDates(dateStr, todayStr, false);
+      total += count;
+    }
+    new Notice(`已迁移 ${total} 个任务到今天`);
+    this.loadFiles();
+  }
+
+  private formatJournalDate(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  /** 将 sourceDate 的日记中未完成任务迁移到 targetDate 日记；返回迁移的任务数 */
+  private async migrateTasksBetweenDates(sourceDate: string, targetDate: string, showNotice = true): Promise<number> {
+    const dir = this.plugin.settings.journalsFolder?.trim() || 'journals';
+    const folder = this.app.vault.getAbstractFileByPath(dir);
+    if (!folder || !(folder instanceof TFolder)) {
+      if (showNotice) new Notice(`日记文件夹不存在: ${dir}`);
+      return 0;
+    }
+    const sourcePath = dir ? `${dir}/${sourceDate}.md` : `${sourceDate}.md`;
+    const targetPath = dir ? `${dir}/${targetDate}.md` : `${targetDate}.md`;
+    const sourceFile = this.app.vault.getAbstractFileByPath(sourcePath);
+    if (!sourceFile || !(sourceFile instanceof TFile)) {
+      if (showNotice) new Notice(`源日记不存在: ${sourceDate}`);
+      return 0;
+    }
+    let content: string;
+    try {
+      content = await this.app.vault.read(sourceFile);
+    } catch (error) {
+      console.error(`读取源日记失败: ${sourcePath}`, error);
+      if (showNotice) new Notice(`读取源日记失败: ${sourceDate}`);
+      return 0;
+    }
+    const lines = content.split('\n');
+    const kept: string[] = [];
+    const migrated: string[] = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.trim().startsWith('- TODO ') || line.trim().startsWith('- [ ]')) {
+        migrated.push(line);
+        let j = i + 1;
+        while (j < lines.length && (lines[j].startsWith('\t') || lines[j].startsWith('    '))) {
+          migrated.push(lines[j]);
+          j++;
+        }
+        i = j;
+      } else {
+        kept.push(line);
+        i++;
+      }
+    }
+    if (migrated.length === 0) {
+      if (showNotice) new Notice(`${sourceDate} 没有需要迁移的任务`);
+      return 0;
+    }
+    let targetContent = '';
+    const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
+    if (targetFile && targetFile instanceof TFile) {
+      try {
+        targetContent = await this.app.vault.read(targetFile);
+      } catch (error) {
+        console.error(`读取目标日记失败: ${targetPath}`, error);
+      }
+    }
+    // 如果目标文件不存在，则创建
+    if (!targetFile) {
+      targetContent = `# ${targetDate} 日记\n\n`;
+    }
+    // 移除旧的迁移标题（如果存在），避免重复
+    if (targetContent.includes('## 从其他日期迁移的任务')) {
+      const parts = targetContent.split('## 从其他日期迁移的任务');
+      targetContent = parts[0];
+    }
+    // 确保末尾有换行
+    if (!targetContent.endsWith('\n')) {
+      targetContent += '\n';
+    } else if (!targetContent.endsWith('\n\n')) {
+      targetContent += '\n';
+    }
+    targetContent += migrated.join('\n') + '\n';
+    try {
+      if (targetFile && targetFile instanceof TFile) {
+        await this.app.vault.modify(targetFile, targetContent);
+      } else {
+        await this.app.vault.create(targetPath, targetContent);
+      }
+      await this.app.vault.modify(sourceFile, kept.join('\n'));
+    } catch (error) {
+      console.error(`迁移任务失败: ${sourceDate} -> ${targetDate}`, error);
+      if (showNotice) new Notice(`迁移任务失败: ${sourceDate} -> ${targetDate}`);
+      return 0;
+    }
+    if (showNotice) {
+      new Notice(`已迁移 ${migrated.length} 行任务从 ${sourceDate} 到 ${targetDate}`);
+      this.loadFiles();
+    }
+    return migrated.length;
+  }
   /** 月文件 → 日文件：将 yyyy-mm.md 按 ## yyyy-mm-dd 拆成 yyyy-mm-dd.md */
   private async monthToDaily() {
     const dir = this.plugin.settings.journalsFolder?.trim() || 'journals';
@@ -2785,6 +2926,16 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
+    new Setting(containerEl)
+      .setName('启动时自动迁移昨日任务')
+      .setDesc('插件启动时自动将昨天日记中未完成的任务迁移到今天')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.autoMigrateYesterdayTasks)
+        .onChange(async (value) => {
+          this.plugin.settings.autoMigrateYesterdayTasks = value;
+          await this.plugin.saveSettings();
+        }));
+
     const donateSection = containerEl.createDiv({ cls: 'plugin-donate-section' });
     new Setting(donateSection).setName('☕ 请作者喝杯咖啡').setHeading();
     donateSection.createEl('p', { text: '如果这个插件帮助了你，欢迎请作者喝杯咖啡 ☕', cls: 'plugin-donate-desc' });
@@ -2821,6 +2972,9 @@ export default class BatchFileManagerPlugin extends Plugin {
     // 在工作区准备好后，在左侧边栏添加视图
     this.app.workspace.onLayoutReady(() => {
       this.initLeaf();
+      if (this.settings.autoMigrateYesterdayTasks) {
+        void this.migrateYesterdayTasks();
+      }
     });
   }
 
