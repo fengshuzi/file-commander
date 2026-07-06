@@ -1,7 +1,7 @@
 {
     "id": "file-commander",
     "name": "File Commander",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "minAppVersion": "1.7.2",
     "description": "Batch file operations - select, delete, move, tag, rename images, find broken links and orphan notes.",
     "author": "lizhifeng",
