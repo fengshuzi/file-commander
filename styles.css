@@ -53,9 +53,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px;
+  /* 与表格行保持一致的高度与内边距 */
+  min-height: 34px;
+  padding: 6px 10px;
   border-radius: 4px;
-  margin-bottom: 4px;
   cursor: pointer;
 }
 
@@ -65,15 +66,17 @@
 
 .batch-manager-file-item input[type="checkbox"] {
   cursor: pointer;
-  flex: 0 0 16px;
-  width: 16px;
-  height: 16px;
+  /* 不强制尺寸，交由 Obsidian 默认渲染，避免勾选标记错位（与表格一致） */
+  flex: 0 0 auto;
   margin: 0;
+  align-self: center;
 }
 
 .batch-manager-file-name {
   flex: 1;
+  /* 与表格字体大小保持一致 */
   font-size: 13px;
+  line-height: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -360,13 +363,10 @@
   background: var(--background-primary);
 }
 
-.fc-search-icon {
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.fc-search-input {
+.fc-search-row .fc-search-input {
   flex: 1;
+  width: 100%;
+  margin: 0;
   padding: 6px 8px;
   font-size: 13px;
   border: 1px solid var(--background-modifier-border);
@@ -377,7 +377,7 @@
   transition: var(--fc-transition, 150ms ease-in-out);
 }
 
-.fc-search-input:focus {
+.fc-search-row .fc-search-input:focus {
   border-color: var(--interactive-accent);
 }
 
@@ -560,4 +560,112 @@
     max-height: 92vh;
     border-radius: 12px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* === Broken file links modal === */
+.fc-broken-links-modal .modal-content {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.fc-broken-links-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 60vh;
+  border-top: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 10px 0;
+}
+
+.fc-broken-link-item {
+  padding: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.fc-broken-link-item:last-child {
+  border-bottom: none;
+}
+
+.fc-broken-link-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.fc-broken-link-file {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-normal);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fc-broken-link-type {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.fc-broken-link-body {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.fc-broken-link-orig {
+  color: var(--text-error);
+  word-break: break-all;
+}
+
+.fc-broken-link-path,
+.fc-broken-link-suggest {
+  margin-top: 4px;
+}
+
+.fc-broken-link-label {
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.fc-broken-link-jump {
+  cursor: pointer;
+}
+
+.fc-broken-link-jump:hover {
+  color: var(--text-accent);
+  text-decoration: underline;
+}
+
+.fc-broken-link-skip {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.fc-broken-link-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fc-broken-link-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: var(--fc-radius-sm, 6px);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+  transition: var(--fc-transition, 150ms ease-in-out);
+}
+
+.fc-broken-link-btn:hover {
+  background: var(--background-modifier-hover);
 }

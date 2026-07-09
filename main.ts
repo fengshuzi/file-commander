@@ -1,4 +1,4 @@
-import { App, Plugin, TFile, TFolder, WorkspaceLeaf, ItemView, Menu, Notice, PluginSettingTab, Setting, Modal, TextComponent } from 'obsidian';
+import { App, Plugin, TFile, TFolder, WorkspaceLeaf, ItemView, Menu, Notice, PluginSettingTab, Setting, Modal, TextComponent, MarkdownView, parseLinktext } from 'obsidian';
 
 const VIEW_TYPE_BATCH_MANAGER = 'file-commander-view';
 
@@ -78,6 +78,64 @@ function getImagePathFromMatch(match: RegExpMatchArray): string | undefined {
   if (wikiPath) return wikiPath;
   if (mdPath) return mdPath;
   return undefined;
+}
+
+interface ParsedWikiLink {
+  linkPath: string;
+  displayText: string;
+  subpath: string;
+}
+
+interface ParsedMarkdownLink {
+  linkPath: string;
+  anchor: string;
+}
+
+/** 解析 Obsidian wiki 链接 [[path|alias]]，返回路径、显示别名与子路径（锚点/块） */
+function parseWikiLink(raw: string): ParsedWikiLink {
+  // 必须先剥离别名，parseLinktext 只处理 `#` 子路径，不识别 `|alias`
+  const separatorIndex = raw.indexOf('|');
+  const target = separatorIndex >= 0 ? raw.substring(0, separatorIndex) : raw;
+  const displayText = separatorIndex >= 0 ? raw.substring(separatorIndex + 1).trim() : '';
+  const linktext = parseLinktext(target);
+  return {
+    linkPath: linktext.path,
+    displayText,
+    subpath: linktext.subpath || ''
+  };
+}
+
+/** 解析标准 Markdown 链接中的路径与锚点，path#heading */
+function parseMarkdownLink(raw: string): ParsedMarkdownLink {
+  const linktext = parseLinktext(raw);
+  const subpath = linktext.subpath || '';
+  return {
+    linkPath: linktext.path,
+    anchor: subpath.startsWith('#') ? subpath.substring(1) : subpath
+  };
+}
+
+/** 判断一个链接字符串是否为需要检查的内部文件链接 */
+function isInternalFileLink(url: string): boolean {
+  if (!url) return false;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return false;
+  if (trimmed.startsWith('mailto:')) return false;
+  if (trimmed.startsWith('file://')) return false;
+  if (trimmed.startsWith('data:')) return false;
+  if (trimmed.startsWith('#')) return false;
+  return true;
+}
+
+interface BrokenFileLink {
+  sourceFile: TFile;
+  originalText: string;
+  linkType: 'wiki' | 'markdown';
+  linkPath: string;
+  displayText: string;
+  anchor: string;
+  subpath: string;
+  suggestedPath: string | null;
 }
 
 interface MermaidApi {
@@ -632,6 +690,158 @@ class ConfirmModal extends Modal {
   }
 }
 
+/** 判断失效链接使用的路径类型，用于预览时标注 */
+function describeLinkPathKind(link: BrokenFileLink): string {
+  if (link.linkType === 'wiki') return 'wiki';
+  const p = link.linkPath;
+  if (p.startsWith('./') || p.startsWith('../')) return '相对路径';
+  if (!p.includes('/')) return '最简路径';
+  return '完整路径';
+}
+
+/**
+ * 一键修正失效文件链接的「预览 → 确认」弹窗。
+ * 列出全部失效链接：可自动匹配到新路径的会被修正，未匹配到的仅作提示，不会改动。
+ */
+class BrokenFileLinksModal extends Modal {
+  private links: BrokenFileLink[];
+  private onConfirm: (links: BrokenFileLink[]) => void;
+  private onClearLink: (link: BrokenFileLink) => Promise<boolean>;
+  private onClearAll: (links: BrokenFileLink[]) => Promise<number>;
+
+  constructor(
+    app: App,
+    links: BrokenFileLink[],
+    onConfirm: (links: BrokenFileLink[]) => void,
+    onClearLink: (link: BrokenFileLink) => Promise<boolean>,
+    onClearAll: (links: BrokenFileLink[]) => Promise<number>
+  ) {
+    super(app);
+    this.links = links;
+    this.onConfirm = onConfirm;
+    this.onClearLink = onClearLink;
+    this.onClearAll = onClearAll;
+  }
+
+  onOpen() {
+    this.contentEl.addClass('fc-broken-links-modal');
+    this.render();
+  }
+
+  private render() {
+    const { contentEl } = this;
+    contentEl.empty();
+
+    const fixable = this.links.filter(link => link.suggestedPath);
+    const unfixable = this.links.filter(link => !link.suggestedPath);
+
+    contentEl.createEl('h2', { text: '一键修正失效文件链接' });
+
+    const description = contentEl.createEl('p', { cls: 'modal-description fc-mb-15' });
+    description.setText(
+      `共发现 ${this.links.length} 个失效链接，其中 ${fixable.length} 个可按完整文件名匹配到新路径。` +
+      `请确认下列修正预览后再执行，未匹配到的 ${unfixable.length} 个不会改动。可点击「清除链接」直接去除失效引用。`
+    );
+
+    if (this.links.length === 0) {
+      contentEl.createEl('p', { text: '没有需要处理的失效链接', cls: 'modal-description' });
+      const closeContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+      const closeBtn = closeContainer.createEl('button', { text: '关闭', cls: 'mod-cta' });
+      closeBtn.onclick = () => this.close();
+      return;
+    }
+
+    const scrollContainer = contentEl.createDiv({ cls: 'fc-broken-links-list' });
+
+    // 先展示可修正的链接（含建议新路径），再展示无法自动匹配的链接
+    for (const link of [...fixable, ...unfixable]) {
+      const item = scrollContainer.createDiv({ cls: 'fc-broken-link-item' });
+
+      const header = item.createDiv({ cls: 'fc-broken-link-header' });
+      const fileSpan = header.createSpan({ cls: 'fc-broken-link-file fc-broken-link-jump', text: link.sourceFile.path });
+      fileSpan.setAttr('title', '点击跳转到原文');
+      fileSpan.onclick = () => { void this.jumpToSource(link); };
+      header.createSpan({ cls: 'fc-broken-link-type', text: describeLinkPathKind(link) });
+
+      const body = item.createDiv({ cls: 'fc-broken-link-body' });
+      const origLine = body.createEl('div', { cls: 'fc-broken-link-orig fc-broken-link-jump', text: `原文: ${link.originalText}` });
+      origLine.setAttr('title', '点击跳转到原文');
+      origLine.onclick = () => { void this.jumpToSource(link); };
+
+      const pathLine = body.createDiv({ cls: 'fc-broken-link-path' });
+      pathLine.createSpan({ text: '失效路径: ', cls: 'fc-broken-link-label' });
+      pathLine.createEl('code', { text: link.linkPath });
+
+      const suggestLine = body.createDiv({ cls: 'fc-broken-link-suggest' });
+      if (link.suggestedPath) {
+        suggestLine.createSpan({ text: '建议路径: ', cls: 'fc-broken-link-label' });
+        suggestLine.createEl('code', { text: link.suggestedPath });
+      } else {
+        suggestLine.createSpan({ text: '未匹配到同名文件，跳过', cls: 'fc-broken-link-skip' });
+      }
+
+      const actions = item.createDiv({ cls: 'fc-broken-link-actions' });
+      const clearBtn = actions.createEl('button', { text: '清除链接', cls: 'fc-broken-link-btn' });
+      clearBtn.setAttr('title', '去除该失效引用，仅保留可读文本');
+      clearBtn.onclick = async () => {
+        clearBtn.disabled = true;
+        const ok = await this.onClearLink(link);
+        if (ok) {
+          this.links = this.links.filter(l => l !== link);
+          this.render();
+        } else {
+          clearBtn.disabled = false;
+        }
+      };
+    }
+
+    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container fc-btn-spread' });
+    const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
+    cancelBtn.onclick = () => this.close();
+
+    const clearAllBtn = buttonContainer.createEl('button', { text: `一键清除全部 (${this.links.length})`, cls: 'mod-warning' });
+    clearAllBtn.setAttr('title', '去除列表中所有失效引用，仅保留可读文本');
+    clearAllBtn.onclick = async () => {
+      clearAllBtn.disabled = true;
+      await this.onClearAll([...this.links]);
+      this.close();
+    };
+
+    const confirmBtn = buttonContainer.createEl('button', {
+      text: fixable.length > 0 ? `确认修正 ${fixable.length} 个链接` : '无可修正链接',
+      cls: 'mod-cta'
+    });
+    confirmBtn.disabled = fixable.length === 0;
+    confirmBtn.onclick = () => {
+      this.close();
+      this.onConfirm(fixable);
+    };
+  }
+
+  /** 打开源文件并定位到失效链接所在位置 */
+  private async jumpToSource(link: BrokenFileLink) {
+    this.close();
+    const leaf = this.app.workspace.getLeaf(false);
+    await leaf.openFile(link.sourceFile);
+
+    const view = leaf.view;
+    if (view instanceof MarkdownView) {
+      const editor = view.editor;
+      const idx = editor.getValue().indexOf(link.originalText);
+      if (idx >= 0) {
+        const from = editor.offsetToPos(idx);
+        const to = editor.offsetToPos(idx + link.originalText.length);
+        editor.setSelection(from, to);
+        editor.scrollIntoView({ from, to }, true);
+      }
+    }
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class BatchFileManagerView extends ItemView {
   private files: FileItem[] = [];
   private allFiles: FileItem[] = []; // 保存所有文件
@@ -642,6 +852,10 @@ class BatchFileManagerView extends ItemView {
   private selectedTags: Set<string> = new Set();
   private searchQuery: string = '';
   private viewMode: 'list' | 'table' = 'list';
+  private fileListEl: HTMLElement | null = null; // 文件列表容器，搜索时只刷新它
+  private countEl: HTMLElement | null = null;     // 工具栏计数
+  private searchDebounce = 0;                      // 搜索防抖计时器
+  private isComposing = false;                     // 中文输入法组合状态
 
   constructor(leaf: WorkspaceLeaf, plugin: BatchFileManagerPlugin) {
     super(leaf);
@@ -698,26 +912,36 @@ class BatchFileManagerView extends ItemView {
 
     // 搜索栏
     const searchRow = container.createDiv({ cls: 'fc-search-row' });
-    searchRow.createSpan({ text: '🔍', cls: 'fc-search-icon' });
     const searchInput = searchRow.createEl('input', {
       type: 'text',
       cls: 'fc-search-input',
       attr: { placeholder: '搜索文件名、标签、frontmatter…' }
     });
     searchInput.value = this.searchQuery;
-    searchInput.addEventListener('input', () => {
-      this.searchQuery = searchInput.value.trim().toLowerCase();
+
+    // 清除按钮：始终存在，按有无输入切换显隐，避免搜索时重建整个视图
+    const clearBtn = searchRow.createEl('button', { text: '×', cls: 'fc-search-clear', attr: { 'aria-label': '清除搜索' } });
+    clearBtn.toggle(this.searchQuery.length > 0);
+    clearBtn.onclick = () => {
+      window.clearTimeout(this.searchDebounce);
+      searchInput.value = '';
+      this.searchQuery = '';
+      clearBtn.toggle(false);
       this.applyFilters();
-      this.renderView();
+      this.refreshFileListOnly();
+      searchInput.focus();
+    };
+
+    // 中文输入法组合期间不触发搜索，组合结束后再触发
+    searchInput.addEventListener('compositionstart', () => { this.isComposing = true; });
+    searchInput.addEventListener('compositionend', () => {
+      this.isComposing = false;
+      this.scheduleSearch(searchInput.value, clearBtn);
     });
-    if (this.searchQuery) {
-      const clearBtn = searchRow.createEl('button', { text: '×', cls: 'fc-search-clear', attr: { 'aria-label': '清除搜索' } });
-      clearBtn.onclick = () => {
-        this.searchQuery = '';
-        this.applyFilters();
-        this.renderView();
-      };
-    }
+    searchInput.addEventListener('input', () => {
+      if (this.isComposing) return;
+      this.scheduleSearch(searchInput.value, clearBtn);
+    });
 
     // 浮动批量操作条（仅在有选中时显示）
     const bulkBar = container.createDiv({
@@ -770,6 +994,9 @@ class BatchFileManagerView extends ItemView {
     // 查找功能按钮
     const findBrokenImagesBtn = toolbar.createEl('button', { text: '查找失效图片' });
     findBrokenImagesBtn.onclick = () => this.findBrokenImages();
+
+    const fixBrokenLinksBtn = toolbar.createEl('button', { text: '一键修正失效文件链接' });
+    fixBrokenLinksBtn.onclick = () => { void this.fixBrokenFileLinks(); };
 
     const findUnreferencedImagesBtn = toolbar.createEl('button', { text: '查找未引用图片' });
     findUnreferencedImagesBtn.onclick = () => this.findUnreferencedImages();
@@ -825,6 +1052,7 @@ class BatchFileManagerView extends ItemView {
 
     // 选中计数
     const countDiv = toolbar.createDiv({ cls: 'batch-manager-count' });
+    this.countEl = countDiv;
     countDiv.setText(`已选中: ${this.getSelectedCount()} / ${this.files.length}`);
 
     // 标签筛选显示区域
@@ -871,7 +1099,25 @@ class BatchFileManagerView extends ItemView {
 
     // 文件列表
     const fileList = container.createDiv({ cls: 'batch-manager-file-list' });
+    this.fileListEl = fileList;
     this.renderFileList(fileList);
+  }
+
+  /** 搜索防抖：延迟触发，避免每敲一个字符就搜索 */
+  private scheduleSearch(rawValue: string, clearBtn: HTMLElement) {
+    clearBtn.toggle(rawValue.length > 0);
+    window.clearTimeout(this.searchDebounce);
+    this.searchDebounce = window.setTimeout(() => {
+      this.searchQuery = rawValue.trim().toLowerCase();
+      this.applyFilters();
+      this.refreshFileListOnly();
+    }, 250);
+  }
+
+  /** 只刷新文件列表与计数，不重建搜索框（避免焦点丢失与中文输入中断） */
+  private refreshFileListOnly() {
+    if (this.fileListEl) this.renderFileList(this.fileListEl);
+    if (this.countEl) this.countEl.setText(`已选中: ${this.getSelectedCount()} / ${this.files.length}`);
   }
 
   private renderFileList(container: HTMLElement) {
@@ -1648,6 +1894,342 @@ class BatchFileManagerView extends ItemView {
     this.renderView();
     
     new Notice(`发现 ${brokenImageFiles.length} 个笔记包含失效图片`);
+  }
+
+  /**
+   * 将代码块与行内代码替换为等长空白，使其中的 [[..]]、[](..) 不被当作链接。
+   * 保持字符长度不变，从而 match.index 仍与原文对齐。
+   */
+  private maskCodeRegions(content: string): string {
+    const blank = (m: string) => ' '.repeat(m.length);
+    return content
+      .replace(/```[\s\S]*?```/g, blank)   // ``` 围栏代码块
+      .replace(/~~~[\s\S]*?~~~/g, blank)   // ~~~ 围栏代码块
+      .replace(/`[^`\n]*`/g, blank);       // `行内代码`
+  }
+
+  /** 判断匹配到的链接是否被成对引号包裹（如 "[[..]]" 或 '[[..]]'），这类属于普通文本 */
+  private isWrappedInQuotes(content: string, index: number, length: number): boolean {
+    if (index < 0) return false;
+    const before = index > 0 ? content[index - 1] : '';
+    const after = content[index + length] ?? '';
+    return (before === '"' && after === '"') || (before === "'" && after === "'");
+  }
+
+  /** 扫描并收集所有失效的内部文件链接（wiki link 与标准 Markdown 链接） */
+  private async collectBrokenFileLinks(): Promise<BrokenFileLink[]> {
+    const allMarkdownFiles = this.app.vault.getMarkdownFiles();
+    const brokenLinks: BrokenFileLink[] = [];
+
+    // 非图片 wiki 链接 [[path|alias]] 与 Markdown 链接 [text](path)
+    const wikiLinkRegex = /(?<!!)\[\[([^\]]+)\]\]/g;
+    const mdLinkRegex = /(?<!!)\[(?:[^\]]*)\]\(([^)]+)\)/g;
+
+    for (const file of allMarkdownFiles) {
+      try {
+        const rawContent = await this.app.vault.cachedRead(file);
+        // 代码块内的链接是示例文本，屏蔽后再扫描（长度保持不变，match.index 仍对齐原文）
+        const content = this.maskCodeRegions(rawContent);
+
+        for (const match of content.matchAll(wikiLinkRegex)) {
+          const raw = match[1];
+          if (!raw) continue;
+          // 被引号包裹的 [[..]] 属于普通文本（如 frontmatter 字符串值），不是真正的链接，跳过
+          if (this.isWrappedInQuotes(content, match.index ?? -1, match[0].length)) continue;
+          const parsed = parseWikiLink(raw);
+          if (!isInternalFileLink(parsed.linkPath)) continue;
+
+          const linkPath = parsed.linkPath;
+          const target = this.resolveFileLink(linkPath, file.path);
+          if (target) continue;
+
+          const suggested = this.suggestFilePath(linkPath, file.path);
+          brokenLinks.push({
+            sourceFile: file,
+            originalText: match[0],
+            linkType: 'wiki',
+            linkPath,
+            displayText: parsed.displayText,
+            anchor: parsed.subpath.startsWith('#') ? parsed.subpath.substring(1) : '',
+            subpath: parsed.subpath,
+            suggestedPath: suggested
+          });
+        }
+
+        for (const match of content.matchAll(mdLinkRegex)) {
+          const raw = match[1];
+          if (!raw) continue;
+          const parsed = parseMarkdownLink(raw);
+          if (!isInternalFileLink(parsed.linkPath)) continue;
+
+          const linkPath = parsed.linkPath;
+          const target = this.resolveFileLink(linkPath, file.path);
+          if (target) continue;
+
+          const suggested = this.suggestFilePath(linkPath, file.path);
+          brokenLinks.push({
+            sourceFile: file,
+            originalText: match[0],
+            linkType: 'markdown',
+            linkPath,
+            displayText: '',
+            anchor: parsed.anchor,
+            subpath: parsed.anchor ? `#${parsed.anchor}` : '',
+            suggestedPath: suggested
+          });
+        }
+      } catch (error) {
+        console.error(`扫描文件链接失败: ${file.path}`, error);
+      }
+    }
+
+    return brokenLinks;
+  }
+
+  /** 一键修正失效文件链接：扫描 -> 预览确认 -> 执行修正 */
+  private async fixBrokenFileLinks() {
+    new Notice('正在扫描失效文件链接...');
+    const brokenLinks = await this.collectBrokenFileLinks();
+
+    if (brokenLinks.length === 0) {
+      new Notice('未发现失效文件链接');
+      return;
+    }
+
+    // 将包含失效链接的笔记显示在文件列表中，便于查看
+    const affectedFiles = Array.from(new Map(brokenLinks.map(link => [link.sourceFile.path, link.sourceFile])).values());
+    this.allFiles = affectedFiles.map(file => ({ file, selected: false }));
+    this.files = [...this.allFiles];
+    this.files.sort((a, b) => a.file.path.localeCompare(b.file.path));
+    this.renderView();
+
+    // 弹出「预览 -> 确认」窗口，确认后才执行修正
+    new BrokenFileLinksModal(
+      this.app,
+      brokenLinks,
+      (links) => { void this.applyBrokenLinkFixes(links); },
+      (link) => this.clearBrokenLink(link),
+      (links) => this.clearAllBrokenLinks(links)
+    ).open();
+  }
+
+  /** 清除单个失效链接：去除链接语法，仅保留可读文本 */
+  private async clearBrokenLink(link: BrokenFileLink): Promise<boolean> {
+    try {
+      const content = await this.app.vault.read(link.sourceFile);
+      if (!content.includes(link.originalText)) {
+        new Notice('未找到原文，可能已被修改');
+        return false;
+      }
+      const plainText = this.buildClearedText(link);
+      const newContent = content.split(link.originalText).join(plainText);
+      await this.app.vault.modify(link.sourceFile, newContent);
+      new Notice(`已清除失效链接: ${link.linkPath}`);
+      this.loadFiles();
+      return true;
+    } catch (error) {
+      console.error(`清除链接失败: ${link.sourceFile.path} -> ${link.linkPath}`, error);
+      new Notice('清除链接失败');
+      return false;
+    }
+  }
+
+  /** 一键清除多个失效链接：按文件分组，每个文件只读写一次 */
+  private async clearAllBrokenLinks(links: BrokenFileLink[]): Promise<number> {
+    if (links.length === 0) return 0;
+
+    const byFile = new Map<TFile, BrokenFileLink[]>();
+    for (const link of links) {
+      const group = byFile.get(link.sourceFile);
+      if (group) group.push(link);
+      else byFile.set(link.sourceFile, [link]);
+    }
+
+    let clearedCount = 0;
+    for (const [file, fileLinks] of byFile) {
+      try {
+        let content = await this.app.vault.read(file);
+        for (const link of fileLinks) {
+          if (!content.includes(link.originalText)) continue;
+          content = content.split(link.originalText).join(this.buildClearedText(link));
+          clearedCount++;
+        }
+        await this.app.vault.modify(file, content);
+      } catch (error) {
+        console.error(`清除链接失败: ${file.path}`, error);
+      }
+    }
+
+    new Notice(`已清除 ${clearedCount} 个失效链接`);
+    this.loadFiles();
+    return clearedCount;
+  }
+
+  /** 计算清除链接后保留的纯文本：wiki 保留别名或路径名，Markdown 保留链接文本 */
+  private buildClearedText(link: BrokenFileLink): string {
+    if (link.linkType === 'wiki') {
+      if (link.displayText) return link.displayText;
+      const name = link.linkPath.split('/').pop() || link.linkPath;
+      return name.replace(/\.md$/i, '');
+    }
+    const labelMatch = link.originalText.match(/^\[([^\]]*)\]/);
+    return labelMatch ? labelMatch[1] : link.originalText;
+  }
+
+  /** 为失效链接推荐一个可能的新路径；找不到时返回 null */
+  private suggestFilePath(linkPath: string, sourcePath: string): string | null {
+    const decoded = this.safeDecodeUriPath(linkPath);
+    const variants = decoded !== linkPath ? [linkPath, decoded] : [linkPath];
+
+    // 1. 使用 Obsidian 链接解析器，兼容省略 .md 的 wiki 链接与最简路径
+    for (const p of variants) {
+      const target = this.app.metadataCache.getFirstLinkpathDest(p, sourcePath);
+      if (target instanceof TFile) return target.path;
+    }
+
+    // 2. 按完整文件名精确匹配（不做模糊/包含匹配，避免误判为无关文件）
+    for (const p of variants) {
+      const best = this.findFileByExactName(p, sourcePath);
+      if (best) return best.path;
+    }
+
+    return null;
+  }
+
+  /**
+   * 仅按「完整文件名」精确匹配来查找文件，找不到或无法确定唯一目标时返回 null。
+   * - 带扩展名时按完整文件名匹配，如 `供应商预研任务分解-模板.md`
+   * - 省略扩展名时（wiki 链接常见）按完整 basename 匹配，如 `供应商预研任务分解-模板`
+   * - 存在多个同名文件时，优先选择与源文件同目录者，否则视为无法确定，返回 null
+   */
+  private findFileByExactName(linkPath: string, sourcePath: string): TFile | null {
+    const rawName = linkPath.split('/').pop() || linkPath;
+    if (!rawName) return null;
+
+    const hasExt = /\.[^./]+$/.test(rawName);
+    const allFiles = this.app.vault.getFiles();
+
+    // 完整名称匹配：带扩展名比对 file.name，省略扩展名比对 file.basename
+    const matches = allFiles.filter(f => (hasExt ? f.name === rawName : f.basename === rawName));
+
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+
+    // 多个同名文件，优先与源文件同目录，否则无法确定唯一目标
+    const sourceDir = sourcePath.split('/').slice(0, -1).join('/');
+    const sameDir = matches.find(f => (f.parent?.path || '') === sourceDir);
+    return sameDir || null;
+  }
+
+  /**
+   * 判断文件链接是否仍然有效，解析策略参考「查找失效图片」的实现：
+   * 直接路径 -> Obsidian 解析器 -> 相对路径（支持 ./ 与 ../）-> 全局唯一文件名（最简路径）。
+   */
+  private resolveFileLink(linkPath: string, sourcePath: string): TFile | null {
+    const decoded = this.safeDecodeUriPath(linkPath);
+    const variants = decoded !== linkPath ? [linkPath, decoded] : [linkPath];
+
+    // 1. 直接路径（相对于 vault 根目录，原始与解码）
+    for (const p of variants) {
+      const file = this.app.vault.getAbstractFileByPath(p);
+      if (file instanceof TFile) return file;
+    }
+
+    // 2. Obsidian 链接解析器（自动处理最简路径、省略 .md 等 wiki 链接）
+    for (const p of variants) {
+      const dest = this.app.metadataCache.getFirstLinkpathDest(p, sourcePath);
+      if (dest instanceof TFile) return dest;
+    }
+
+    // 3. 相对于源文件的路径，正确解析 ./ 与 ../
+    const sourceDir = sourcePath.split('/').slice(0, -1).join('/');
+    for (const p of variants) {
+      const relativePath = this.resolveRelativePath(sourceDir, p);
+      const file = this.app.vault.getAbstractFileByPath(relativePath);
+      if (file instanceof TFile) return file;
+    }
+
+    // 4. 最简路径：仅按完整文件名全局匹配，且必须唯一，避免误判
+    for (const p of variants) {
+      const fileName = p.split('/').pop() || p;
+      const matches = this.app.vault.getFiles().filter(f => f.name === fileName || f.basename === fileName);
+      if (matches.length === 1) return matches[0];
+    }
+
+    return null;
+  }
+
+  /** 将相对路径（含 ./ 与 ../）解析为相对于 vault 根目录的规范路径 */
+  private resolveRelativePath(sourceDir: string, relative: string): string {
+    const stack = sourceDir ? sourceDir.split('/').filter(Boolean) : [];
+    for (const part of relative.split('/')) {
+      if (part === '' || part === '.') continue;
+      if (part === '..') stack.pop();
+      else stack.push(part);
+    }
+    return stack.join('/');
+  }
+
+  /** 应用链接修正：将原文中的失效路径替换为建议路径 */
+  private async applyBrokenLinkFixes(links: BrokenFileLink[]) {
+    if (links.length === 0) return;
+
+    let successCount = 0;
+    let failCount = 0;
+    const modifiedFiles = new Set<TFile>();
+
+    for (const link of links) {
+      if (!link.suggestedPath) continue;
+      try {
+        const content = await this.app.vault.read(link.sourceFile);
+        const newLink = this.buildReplacementLink(link);
+        if (newLink === link.originalText) continue;
+
+        const newContent = content.split(link.originalText).join(newLink);
+        if (newContent === content) {
+          failCount++;
+          continue;
+        }
+        await this.app.vault.modify(link.sourceFile, newContent);
+        successCount++;
+        modifiedFiles.add(link.sourceFile);
+      } catch (error) {
+        console.error(`修正链接失败: ${link.sourceFile.path} -> ${link.linkPath}`, error);
+        failCount++;
+      }
+    }
+
+    new Notice(`链接修正完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
+    if (modifiedFiles.size > 0) {
+      this.loadFiles();
+    }
+  }
+
+  /** 根据建议路径构造新的链接文本，保留别名/锚点 */
+  private buildReplacementLink(link: BrokenFileLink): string {
+    if (!link.suggestedPath) return link.originalText;
+
+    if (link.linkType === 'wiki') {
+      // wiki 链接使用原始路径，Obsidian 自身负责解析
+      let result = `[[${link.suggestedPath}`;
+      if (link.subpath) result += link.subpath;
+      if (link.displayText) result += `|${link.displayText}`;
+      result += ']]';
+      return result;
+    }
+
+    // 标准 Markdown 链接需要对路径中的空格等字符编码，保证在 Obsidian/Typora 中都有效
+    const encodedPath = this.encodeMarkdownLinkPath(link.suggestedPath);
+    const anchor = link.anchor ? `#${link.anchor}` : '';
+    return link.originalText.replace(/\(([^)]+)\)/, `(${encodedPath}${anchor})`);
+  }
+
+  /** 对 Markdown 链接路径做 URL 编码，但保留 `/` 分隔符 */
+  private encodeMarkdownLinkPath(path: string): string {
+    return path
+      .split('/')
+      .map(segment => encodeURIComponent(segment))
+      .join('/');
   }
 
   /** 递归收集文件夹下所有扩展名在 exts 中的图片文件 */
@@ -3094,25 +3676,7 @@ export default class BatchFileManagerPlugin extends Plugin {
       if (showNotice) new Notice(`读取源日记失败: ${sourceDate}`);
       return 0;
     }
-    const lines = content.split('\n');
-    const kept: string[] = [];
-    const migrated: string[] = [];
-    let i = 0;
-    while (i < lines.length) {
-      const line = lines[i];
-      if (line.trim().startsWith('- TODO ') || line.trim().startsWith('- [ ]')) {
-        migrated.push(line);
-        let j = i + 1;
-        while (j < lines.length && (lines[j].startsWith('\t') || lines[j].startsWith('    '))) {
-          migrated.push(lines[j]);
-          j++;
-        }
-        i = j;
-      } else {
-        kept.push(line);
-        i++;
-      }
-    }
+    const { kept, tasks: migrated } = this.splitContentByTasks(content);
     if (migrated.length === 0) {
       if (showNotice) new Notice(`${sourceDate} 没有需要迁移的任务`);
       return 0;
@@ -3129,21 +3693,37 @@ export default class BatchFileManagerPlugin extends Plugin {
     if (!targetFile) {
       targetContent = `# ${targetDate} 日记\n\n`;
     }
-    if (targetContent.includes('## 从其他日期迁移的任务')) {
-      const parts = targetContent.split('## 从其他日期迁移的任务');
-      targetContent = parts[0];
+    const { tasks: existingTasks } = this.splitContentByTasks(targetContent);
+    const existingTaskKeys = new Set(existingTasks.map(block => block.join('\n')));
+    const newTasks = migrated.filter(block => !existingTaskKeys.has(block.join('\n')));
+    if (newTasks.length === 0) {
+      if (showNotice) new Notice(`${targetDate} 已存在相同任务，无需迁移`);
+      return 0;
     }
     if (!targetContent.endsWith('\n')) {
       targetContent += '\n';
     } else if (!targetContent.endsWith('\n\n')) {
       targetContent += '\n';
     }
-    targetContent += migrated.join('\n') + '\n';
+    targetContent += newTasks.map(block => block.join('\n')).join('\n') + '\n';
     try {
       if (targetFile && targetFile instanceof TFile) {
         await this.app.vault.modify(targetFile, targetContent);
       } else {
-        await this.app.vault.create(targetPath, targetContent);
+        try {
+          await this.app.vault.create(targetPath, targetContent);
+        } catch (createError) {
+          if (createError instanceof Error && createError.message.includes('already exists')) {
+            const existingFile = this.app.vault.getAbstractFileByPath(targetPath);
+            if (existingFile instanceof TFile) {
+              await this.app.vault.modify(existingFile, targetContent);
+            } else {
+              throw createError;
+            }
+          } else {
+            throw createError;
+          }
+        }
       }
       await this.app.vault.modify(sourceFile, kept.join('\n'));
     } catch (error) {
@@ -3152,10 +3732,34 @@ export default class BatchFileManagerPlugin extends Plugin {
       return 0;
     }
     if (showNotice) {
-      new Notice(`已迁移 ${migrated.length} 行任务从 ${sourceDate} 到 ${targetDate}`);
+      new Notice(`已迁移 ${newTasks.length} 行任务从 ${sourceDate} 到 ${targetDate}`);
     }
     this.refreshManagerViews();
-    return migrated.length;
+    return newTasks.length;
+  }
+
+  private splitContentByTasks(content: string): { kept: string[]; tasks: string[][] } {
+    const lines = content.split('\n');
+    const kept: string[] = [];
+    const tasks: string[][] = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.trim().startsWith('- TODO ') || line.trim().startsWith('- [ ]')) {
+        const block = [line];
+        let j = i + 1;
+        while (j < lines.length && (lines[j].startsWith('\t') || lines[j].startsWith('    '))) {
+          block.push(lines[j]);
+          j++;
+        }
+        tasks.push(block);
+        i = j;
+      } else {
+        kept.push(line);
+        i++;
+      }
+    }
+    return { kept, tasks };
   }
 
   private refreshManagerViews(): void {
