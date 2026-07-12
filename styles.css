@@ -1,319 +1,21 @@
+/* File Commander — Apple-style command bar design for Obsidian */
+
 .file-commander-view {
-  padding: 10px;
-  height: 100%;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
 }
 
-.batch-manager-toolbar {
-  display: flex;
-  gap: 8px;
-  padding: 10px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.batch-manager-toolbar button {
-  padding: 6px 12px;
-  border-radius: 4px;
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.batch-manager-toolbar button:hover {
-  background: var(--background-modifier-hover);
-}
-
-.batch-manager-toolbar button.mod-warning {
-  color: var(--text-error);
-  border-color: var(--text-error);
-}
-
-.batch-manager-toolbar button.mod-warning:hover {
-  background: var(--background-modifier-error);
-}
-
-.batch-manager-count {
-  margin-left: auto;
-  font-size: 13px;
-  color: var(--text-muted);
-  padding: 6px 12px;
-}
-
-.batch-manager-file-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-}
-
-.batch-manager-file-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  /* 与表格行保持一致的高度与内边距 */
-  min-height: 34px;
-  padding: 6px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.batch-manager-file-item:hover {
-  background: var(--background-modifier-hover);
-}
-
-.batch-manager-file-item input[type="checkbox"] {
-  cursor: pointer;
-  /* 不强制尺寸，交由 Obsidian 默认渲染，避免勾选标记错位（与表格一致） */
-  flex: 0 0 auto;
-  margin: 0;
-  align-self: center;
-}
-
-.batch-manager-file-name {
-  flex: 1;
-  /* 与表格字体大小保持一致 */
-  font-size: 13px;
-  line-height: 20px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.batch-manager-empty {
-  text-align: center;
-  color: var(--text-muted);
-  padding: 40px;
-  font-size: 14px;
-}
-
-.batch-manager-tag-filter {
-  padding: 10px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tag-filter-label {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.tag-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border-radius: 12px;
-  font-size: 12px;
-  cursor: default;
-}
-
-.tag-remove {
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 2px;
-  border-radius: 50%;
-}
-
-.tag-remove:hover {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.clear-filter-btn {
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 4px;
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
-  cursor: pointer;
-}
-
-.clear-filter-btn:hover {
-  background: var(--background-modifier-hover);
-}
-
-.tag-search-container {
-  margin-bottom: 10px;
-}
-
-.tag-list-container {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.tag-filter-item {
-  display: flex;
-  align-items: center;
-  padding: 5px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.tag-filter-item:hover {
-  background: var(--background-modifier-hover);
-}
-
-.modal-description {
-  color: var(--text-muted);
-  font-size: 13px;
-  margin: 10px 0;
-}
-
-.modal-input-container {
-  margin: 15px 0;
-}
-
-.modal-button-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-
-/* 设置页打赏区 */
-.plugin-donate-section {
-    margin-top: 48px;
-    padding-top: 24px;
-    border-top: 1px solid var(--background-modifier-border);
-    text-align: center;
-}
-
-.plugin-donate-section h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-normal);
-    margin-bottom: 6px;
-}
-
-.plugin-donate-desc {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin-bottom: 16px;
-}
-
-.plugin-donate-qr {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 16px 20px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 12px;
-    background: var(--background-secondary);
-}
-
-.plugin-donate-qr img {
-    width: 320px;
-    max-width: 100%;
-    height: auto;
-    border-radius: 8px;
-    display: block;
-    cursor: zoom-in;
-}
-
-.plugin-donate-label {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    margin: 0;
-}
-
-/* Utility classes for replacing inline styles */
-.fc-mb-15 {
-  margin-bottom: 15px;
-}
-
-.fc-mt-15 {
-  margin-top: 15px;
-}
-
-.fc-search-input {
-  width: 100%;
-  margin-bottom: 10px;
-}
-
-.fc-list-container {
-  max-height: 400px;
-  overflow-y: auto;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  padding: 10px;
-  margin-bottom: 15px;
-}
-
-.fc-list-item {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.fc-list-item:hover {
-  background-color: var(--background-modifier-hover);
-}
-
-.fc-icon-mr {
-  margin-right: 8px;
-}
-
-.fc-flex-1 {
-  flex: 1;
-}
-
-.fc-checkbox-mr {
-  margin-right: 10px;
-}
-
-.fc-input-full {
-  width: 100%;
-}
-
-.fc-btn-spread {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.fc-btn-group {
-  display: flex;
-  gap: 10px;
-}
-
-.fc-folder-filter-bar {
-  padding: 10px;
-  margin-bottom: 10px;
-  background-color: var(--background-secondary);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.fc-folder-path {
-  font-weight: bold;
-  flex: 1;
-}
-
-.folder-filter-item:hover {
-  background-color: var(--background-modifier-hover);
-}
-/* === FC stats strip === */
+/* ---------- Header / Stats ---------- */
 .fc-stats {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 12px;
+  padding: 10px 16px;
   font-size: 13px;
+  line-height: 1.29;
   color: var(--text-muted);
   border-bottom: 1px solid var(--background-modifier-border);
   background: var(--background-secondary);
@@ -322,6 +24,7 @@
 
 .fc-stats-icon {
   font-size: 14px;
+  margin-right: 2px;
 }
 
 .fc-stats-label {
@@ -330,7 +33,11 @@
 
 .fc-stats-value {
   color: var(--text-normal);
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.224px;
+  min-width: 1.2em;
+  text-align: center;
 }
 
 .fc-stats-selected {
@@ -339,26 +46,30 @@
 
 .fc-stats-refresh {
   margin-left: auto;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-size: 12px;
-  border-radius: var(--fc-radius-sm, 6px);
+  border-radius: var(--button-radius);
   border: 1px solid var(--background-modifier-border);
   background: var(--background-primary);
   color: var(--text-normal);
   cursor: pointer;
-  transition: var(--fc-transition, 150ms ease-in-out);
+  transition: transform 60ms ease, background-color 120ms ease, color 120ms ease;
 }
 
 .fc-stats-refresh:hover {
   background: var(--background-modifier-hover);
 }
 
-/* === FC search row === */
+.fc-stats-refresh:active {
+  transform: scale(0.96);
+}
+
+/* ---------- Search row ---------- */
 .fc-search-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 8px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--background-modifier-border);
   background: var(--background-primary);
 }
@@ -366,30 +77,39 @@
 .fc-search-row .fc-search-input {
   flex: 1;
   width: 100%;
+  height: 40px;
   margin: 0;
-  padding: 6px 8px;
-  font-size: 13px;
+  padding: 0 16px;
+  font-size: 14px;
+  line-height: 1.43;
+  letter-spacing: -0.224px;
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--fc-radius-sm, 6px);
-  background: var(--background-primary);
+  border-radius: var(--button-radius);
+  background: var(--background-modifier-form-fields);
   color: var(--text-normal);
   outline: none;
-  transition: var(--fc-transition, 150ms ease-in-out);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .fc-search-row .fc-search-input:focus {
   border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 3px rgba(var(--interactive-accent-rgb), 0.15);
 }
 
 .fc-search-clear {
-  border: none;
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
   color: var(--text-muted);
   font-size: 18px;
   line-height: 1;
-  padding: 2px 6px;
   cursor: pointer;
-  border-radius: var(--fc-radius-sm, 6px);
+  border-radius: 50%;
+  transition: transform 60ms ease, background-color 120ms ease, color 120ms ease;
 }
 
 .fc-search-clear:hover {
@@ -397,15 +117,74 @@
   color: var(--text-normal);
 }
 
-/* === FC floating bulk action bar === */
+.fc-search-clear:active {
+  transform: scale(0.92);
+}
+
+/* ---------- Command bar ---------- */
+.batch-manager-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+}
+
+.fc-cmd-btn {
+  min-height: 28px;
+  padding: 6px 12px;
+  border-radius: var(--button-radius);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-modifier-form-fields);
+  color: var(--text-normal);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.29;
+  letter-spacing: -0.224px;
+  cursor: pointer;
+  transition: transform 60ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.fc-cmd-btn:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.fc-cmd-btn:active {
+  transform: scale(0.96);
+}
+
+.fc-cmd-btn.is-active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+}
+
+.fc-cmd-btn.is-active:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.fc-cmd-menu {
+  padding-right: 10px;
+}
+
+.batch-manager-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  line-height: 1.29;
+}
+
+/* ---------- Bulk action bar ---------- */
 .fc-bulk-bar {
   display: none;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--background-secondary);
+  gap: 12px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--background-modifier-border);
-  flex-wrap: wrap;
+  background-color: var(--background-secondary);
 }
 
 .fc-bulk-bar.is-visible {
@@ -417,58 +196,217 @@
   font-weight: 600;
   color: var(--interactive-accent);
   margin-right: 4px;
+  white-space: nowrap;
 }
 
 .fc-bulk-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
+  flex: 1;
 }
 
 .fc-bulk-btn {
-  padding: 5px 10px;
-  font-size: 13px;
-  border-radius: var(--fc-radius-sm, 6px);
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
+  min-height: 28px;
+  padding: 6px 12px;
+  border-radius: var(--button-radius);
+  border: 1px solid transparent;
+  background: var(--background-modifier-form-fields);
   color: var(--text-normal);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.29;
   cursor: pointer;
-  transition: var(--fc-transition, 150ms ease-in-out);
+  transition: transform 60ms ease, background-color 120ms ease, color 120ms ease;
 }
 
 .fc-bulk-btn:hover {
-  background: var(--background-modifier-hover);
+  background-color: var(--background-modifier-hover);
 }
 
-.fc-bulk-clear {
-  margin-left: auto;
-  color: var(--text-muted);
+.fc-bulk-btn:active {
+  transform: scale(0.96);
 }
 
-/* Toolbar pill style for the remaining few toolbar buttons (select-all etc.) */
-.fc-toolbar-pill {
-  padding: 5px 10px;
-  font-size: 12px;
-  border-radius: var(--fc-radius-sm, 6px);
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
-  color: var(--text-normal);
-  cursor: pointer;
-  transition: var(--fc-transition, 150ms ease-in-out);
-}
-
-.fc-toolbar-pill:hover {
-  background: var(--background-modifier-hover);
-}
-
-/* === FC table view === */
-.fc-toolbar-pill.is-active {
-  background: var(--interactive-accent);
+.fc-bulk-btn.fc-primary {
+  background-color: var(--interactive-accent);
   color: var(--text-on-accent);
-  border-color: var(--interactive-accent);
 }
 
+.fc-bulk-btn.fc-primary:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.fc-bulk-btn.fc-danger {
+  background-color: transparent;
+  color: var(--text-error);
+  border-color: var(--text-error);
+}
+
+.fc-bulk-btn.fc-danger:hover {
+  background-color: var(--background-modifier-error);
+  color: var(--text-error);
+}
+
+.fc-bulk-clear,
+.fc-bulk-more {
+  color: var(--text-muted);
+  border-color: var(--background-modifier-border);
+}
+
+.fc-bulk-clear:hover,
+.fc-bulk-more:hover {
+  color: var(--text-normal);
+}
+
+/* ---------- Filter chips ---------- */
+.batch-manager-tag-filter,
+.batch-manager-folder-filter,
+.fc-folder-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+}
+
+.tag-filter-label,
+.folder-filter-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: -0.224px;
+}
+
+.folder-path,
+.fc-folder-path {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: var(--button-radius);
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: 1px solid transparent;
+  font-size: 12px;
+  line-height: 1.29;
+  cursor: default;
+}
+
+.tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 50%;
+  color: inherit;
+  opacity: 0.8;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.tag-remove:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.12);
+}
+
+.clear-filter-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: var(--button-radius);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: transform 60ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.clear-filter-btn:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.clear-filter-btn:active {
+  transform: scale(0.96);
+}
+
+/* ---------- File list (flat) ---------- */
+.batch-manager-file-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.batch-manager-file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.batch-manager-file-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.batch-manager-file-item.is-selected {
+  background-color: var(--background-modifier-active-hover);
+}
+
+.batch-manager-file-item input[type="checkbox"] {
+  cursor: pointer;
+  flex: 0 0 auto;
+  margin: 0;
+  align-self: center;
+}
+
+.batch-manager-file-name {
+  flex: 1;
+  font-size: 13px;
+  line-height: 20px;
+  letter-spacing: -0.224px;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-manager-file-item.is-selected .batch-manager-file-name {
+  color: var(--text-normal);
+}
+
+/* ---------- Empty state ---------- */
+.batch-manager-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  color: var(--text-muted);
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.224px;
+  text-align: center;
+}
+
+/* ---------- Table view ---------- */
 .fc-table-wrap {
   flex: 1;
   overflow: auto;
@@ -488,6 +426,7 @@
   padding: 8px 10px;
   font-weight: 600;
   font-size: 12px;
+  line-height: 1.29;
   color: var(--text-muted);
   border-bottom: 1px solid var(--background-modifier-border);
   white-space: nowrap;
@@ -495,11 +434,15 @@
 
 .fc-table-row {
   cursor: pointer;
-  transition: var(--fc-transition, 150ms ease-in-out);
+  transition: background-color 120ms ease;
 }
 
 .fc-table-row:hover {
-  background: var(--background-modifier-hover);
+  background-color: var(--background-modifier-hover);
+}
+
+.fc-table-row.is-selected {
+  background-color: var(--background-modifier-active-hover);
 }
 
 .fc-table-row td {
@@ -513,12 +456,18 @@
   text-align: center;
 }
 
+.fc-table-cell-check input[type="checkbox"] {
+  cursor: pointer;
+  margin: 0;
+}
+
 .fc-table-cell-name {
   font-weight: 500;
   max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-normal);
 }
 
 .fc-table-cell-tags {
@@ -544,25 +493,174 @@
   font-variant-numeric: tabular-nums;
 }
 
-.plugin-donate-lightbox {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: rgba(0, 0, 0, 0.82);
-    cursor: zoom-out;
-}
-.plugin-donate-lightbox-img {
-    max-width: 96vw;
-    max-height: 92vh;
-    border-radius: 12px;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+/* ---------- Modals ---------- */
+.modal-content .modal-description {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.47;
+  margin: 8px 0 16px;
 }
 
-/* === Broken file links modal === */
+.modal-content h2 {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.19;
+  letter-spacing: 0.231px;
+  margin-bottom: 4px;
+}
+
+.modal-input-container {
+  margin: 12px 0;
+}
+
+.modal-input-container label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-normal);
+  margin-bottom: 6px;
+  letter-spacing: -0.224px;
+}
+
+.modal-button-container {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.modal-button-container button,
+.fc-broken-link-btn {
+  min-height: 32px;
+  padding: 8px 18px;
+  border-radius: var(--button-radius);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-modifier-form-fields);
+  color: var(--text-normal);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.29;
+  cursor: pointer;
+  transition: transform 60ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.modal-button-container button:hover,
+.fc-broken-link-btn:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.modal-button-container button:active,
+.fc-broken-link-btn:active {
+  transform: scale(0.96);
+}
+
+.modal-button-container button.mod-cta,
+.fc-broken-link-btn.mod-cta {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+}
+
+.modal-button-container button.mod-cta:hover,
+.fc-broken-link-btn.mod-cta:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.modal-button-container button.mod-warning,
+.fc-broken-link-btn.mod-warning {
+  background-color: transparent;
+  color: var(--text-error);
+  border-color: var(--text-error);
+}
+
+.modal-button-container button.mod-warning:hover,
+.fc-broken-link-btn.mod-warning:hover {
+  background-color: var(--background-modifier-error);
+  color: var(--text-error);
+}
+
+.modal-button-container button.mod-secondary,
+.fc-broken-link-btn {
+  background-color: var(--background-primary);
+  color: var(--text-muted);
+}
+
+.modal-button-container button.mod-secondary:hover,
+.fc-broken-link-btn:hover {
+  color: var(--text-normal);
+}
+
+/* ---------- Search inputs ---------- */
+.fc-search-input input,
+.fc-input-full input,
+.tag-search-container input,
+.folder-search-container input,
+.modal-input-container input {
+  width: 100%;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--button-radius);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-modifier-form-fields);
+  color: var(--text-normal);
+  font-size: 14px;
+  line-height: 1.43;
+  letter-spacing: -0.224px;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.fc-search-input input:focus,
+.fc-input-full input:focus,
+.tag-search-container input:focus,
+.folder-search-container input:focus,
+.modal-input-container input:focus {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 3px rgba(var(--interactive-accent-rgb), 0.15);
+}
+
+/* ---------- List containers ---------- */
+.fc-list-container,
+.tag-list-container,
+.folder-list-container {
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 6px;
+  margin-bottom: 16px;
+  background-color: var(--background-primary);
+}
+
+.fc-list-item,
+.tag-filter-item,
+.folder-filter-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+  min-height: 36px;
+  font-size: 14px;
+  line-height: 1.43;
+  color: var(--text-normal);
+}
+
+.fc-list-item:hover,
+.tag-filter-item:hover,
+.folder-filter-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.fc-list-item.is-selected,
+.tag-filter-item.is-selected {
+  background-color: var(--background-modifier-active-hover);
+}
+
+/* ---------- Broken file links modal ---------- */
 .fc-broken-links-modal .modal-content {
   max-height: 80vh;
   display: flex;
@@ -576,10 +674,11 @@
   border-top: 1px solid var(--background-modifier-border);
   border-bottom: 1px solid var(--background-modifier-border);
   padding: 10px 0;
+  margin: 10px 0;
 }
 
 .fc-broken-link-item {
-  padding: 12px;
+  padding: 14px;
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
@@ -591,12 +690,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .fc-broken-link-file {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-normal);
   flex: 1;
   overflow: hidden;
@@ -604,19 +703,29 @@
   white-space: nowrap;
 }
 
+.fc-broken-link-jump {
+  cursor: pointer;
+  color: var(--interactive-accent);
+}
+
+.fc-broken-link-jump:hover {
+  text-decoration: underline;
+}
+
 .fc-broken-link-type {
   font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 10px;
+  padding: 3px 8px;
+  border-radius: var(--button-radius);
   background: var(--background-secondary);
   color: var(--text-muted);
   text-transform: uppercase;
+  letter-spacing: 0.2px;
 }
 
 .fc-broken-link-body {
   font-size: 13px;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   line-height: 1.5;
 }
 
@@ -627,21 +736,12 @@
 
 .fc-broken-link-path,
 .fc-broken-link-suggest {
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .fc-broken-link-label {
   color: var(--text-muted);
   margin-right: 4px;
-}
-
-.fc-broken-link-jump {
-  cursor: pointer;
-}
-
-.fc-broken-link-jump:hover {
-  color: var(--text-accent);
-  text-decoration: underline;
 }
 
 .fc-broken-link-skip {
@@ -656,16 +756,119 @@
 }
 
 .fc-broken-link-btn {
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-size: 12px;
-  border-radius: var(--fc-radius-sm, 6px);
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
-  color: var(--text-normal);
-  cursor: pointer;
-  transition: var(--fc-transition, 150ms ease-in-out);
 }
 
-.fc-broken-link-btn:hover {
-  background: var(--background-modifier-hover);
+/* ---------- Donate section ---------- */
+.plugin-donate-section {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--background-modifier-border);
+    text-align: center;
+}
+
+.plugin-donate-section h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-normal);
+    margin-bottom: 6px;
+    letter-spacing: -0.224px;
+}
+
+.plugin-donate-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    line-height: 1.43;
+}
+
+.plugin-donate-qr {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 20px;
+    border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  background-color: var(--background-secondary);
+}
+
+.plugin-donate-qr img {
+    width: 320px;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    display: block;
+  cursor: zoom-in;
+}
+
+.plugin-donate-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.plugin-donate-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.82);
+  cursor: zoom-out;
+}
+
+.plugin-donate-lightbox-img {
+    max-width: 96vw;
+    max-height: 92vh;
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Utility classes ---------- */
+.fc-mb-15 { margin-bottom: 15px; }
+.fc-mt-15 { margin-top: 15px; }
+.fc-icon-mr { margin-right: 8px; }
+.fc-flex-1 { flex: 1; }
+.fc-checkbox-mr { margin-right: 10px; }
+.fc-input-full { width: 100%; }
+.fc-btn-spread { display: flex; justify-content: space-between; gap: 10px; }
+.fc-btn-group { display: flex; gap: 10px; }
+.fc-folder-filter-bar { background-color: var(--background-secondary); }
+
+/* ---------- Scrollbar ---------- */
+.batch-manager-file-list::-webkit-scrollbar,
+.fc-list-container::-webkit-scrollbar,
+.tag-list-container::-webkit-scrollbar,
+.folder-list-container::-webkit-scrollbar,
+.fc-broken-links-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.batch-manager-file-list::-webkit-scrollbar-track,
+.fc-list-container::-webkit-scrollbar-track,
+.tag-list-container::-webkit-scrollbar-track,
+.folder-list-container::-webkit-scrollbar-track,
+.fc-broken-links-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.batch-manager-file-list::-webkit-scrollbar-thumb,
+.fc-list-container::-webkit-scrollbar-thumb,
+.tag-list-container::-webkit-scrollbar-thumb,
+.folder-list-container::-webkit-scrollbar-thumb,
+.fc-broken-links-list::-webkit-scrollbar-thumb {
+  background-color: var(--background-modifier-border-hover);
+  border-radius: 4px;
+}
+
+.batch-manager-file-list::-webkit-scrollbar-thumb:hover,
+.fc-list-container::-webkit-scrollbar-thumb:hover,
+.tag-list-container::-webkit-scrollbar-thumb:hover,
+.folder-list-container::-webkit-scrollbar-thumb:hover,
+.fc-broken-links-list::-webkit-scrollbar-thumb:hover {
+  background-color: var(--background-modifier-border-focus);
 }

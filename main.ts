@@ -967,88 +967,74 @@ class BatchFileManagerView extends ItemView {
       menu.addItem(item => item.setTitle('流程图转导出版').setIcon('git-branch').onClick(() => { void this.mermaidToExportMd(); }));
       menu.addSeparator();
       menu.addItem(item => item.setTitle('删除选中').setIcon('trash').onClick(() => this.deleteSelected()));
-      menu.showAtMouseEvent(new MouseEvent('click'));
+      const btnRect: DOMRect = bulkMoreBtn.getBoundingClientRect();
+      menu.showAtPosition({ x: btnRect.left, y: btnRect.bottom });
     };
     const bulkClearBtn = bulkActions.createEl('button', { text: '取消选择', cls: 'fc-bulk-btn fc-bulk-clear' });
     bulkClearBtn.onclick = () => this.deselectAll();
 
-    // 工具栏
+    // 命令栏：用下拉菜单容纳持续增加的功能
     const toolbar = container.createDiv({ cls: 'batch-manager-toolbar' });
 
-    // 工具栏首部：全选
-    const selectAllBtn = toolbar.createEl('button', { text: '全选', cls: 'fc-toolbar-pill' });
+    const selectAllBtn = toolbar.createEl('button', { text: '全选', cls: 'fc-cmd-btn' });
     selectAllBtn.onclick = () => this.selectAll();
 
-    // 视图切换
+    const bulkMenuBtn = toolbar.createEl('button', { text: '批量操作 ▾', cls: 'fc-cmd-btn fc-cmd-menu' });
+    bulkMenuBtn.onclick = () => {
+      const menu = new Menu();
+      menu.addItem(item => item.setTitle('打标签').setIcon('tag').onClick(() => this.addTagsToSelected()));
+      menu.addItem(item => item.setTitle('替换标签').setIcon('replace').onClick(() => this.replaceTagsInSelected()));
+      menu.addItem(item => item.setTitle('重命名属性').setIcon('pencil').onClick(() => this.renameFrontmatterProperty()));
+      menu.addItem(item => item.setTitle('移动选中').setIcon('folder').onClick(() => this.moveSelected()));
+      menu.addSeparator();
+      menu.addItem(item => item.setTitle('删除选中').setIcon('trash').onClick(() => this.deleteSelected()));
+      const btnRect: DOMRect = bulkMenuBtn.getBoundingClientRect();
+      menu.showAtPosition({ x: btnRect.left, y: btnRect.bottom });
+    };
+
+    const findMenuBtn = toolbar.createEl('button', { text: '查找与筛选 ▾', cls: 'fc-cmd-btn fc-cmd-menu' });
+    findMenuBtn.onclick = () => {
+      const menu = new Menu();
+      menu.addItem(item => item.setTitle('按标签筛选').setIcon('tag').onClick(() => this.showTagFilterModal()));
+      menu.addItem(item => item.setTitle('按文件夹筛选').setIcon('folder').onClick(() => this.showFolderSelectModal()));
+      menu.addSeparator();
+      menu.addItem(item => item.setTitle('失效图片').setIcon('image').onClick(() => this.findBrokenImages()));
+      menu.addItem(item => item.setTitle('失效文件链接').setIcon('link').onClick(() => { void this.fixBrokenFileLinks(); }));
+      menu.addItem(item => item.setTitle('未引用图片').setIcon('image-off').onClick(() => this.findUnreferencedImages()));
+      menu.addItem(item => item.setTitle('无标签笔记').setIcon('tag-off').onClick(() => this.findUntaggedNotes()));
+      menu.addItem(item => item.setTitle('孤立笔记').setIcon('unlink').onClick(() => this.findOrphanNotes()));
+      menu.addItem(item => item.setTitle('空文件').setIcon('file-minimal').onClick(() => this.findEmptyFiles()));
+      const btnRect: DOMRect = findMenuBtn.getBoundingClientRect();
+      menu.showAtPosition({ x: btnRect.left, y: btnRect.bottom });
+    };
+
+    const convertMenuBtn = toolbar.createEl('button', { text: '转换导出 ▾', cls: 'fc-cmd-btn fc-cmd-menu' });
+    convertMenuBtn.onclick = () => {
+      const menu = new Menu();
+      menu.addItem(item => item.setTitle('图片重命名（文件名-001）').setIcon('image-file').onClick(() => { void this.renameImagesToNoteName(); }));
+      menu.addItem(item => item.setTitle('图片转相对路径').setIcon('image-gif').onClick(() => { void this.convertImageLinksToRelativePath(); }));
+      menu.addItem(item => item.setTitle('图片转最简路径').setIcon('image').onClick(() => { void this.convertImageLinksToSimplePath(); }));
+      menu.addSeparator();
+      menu.addItem(item => item.setTitle('一键归档日志').setIcon('archive').onClick(() => { void this.mergeJournalsToMonth(); }));
+      menu.addItem(item => item.setTitle('一键还原日志').setIcon('switch').onClick(() => { void this.monthToDaily(); }));
+      menu.addItem(item => item.setTitle('合并 iCloud 冲突文件').setIcon('merge').onClick(() => { void this.plugin.mergeIcloudConflictFiles(true); }));
+      menu.addItem(item => item.setTitle('迁移昨日任务到今天').setIcon('calendar').onClick(() => { void this.plugin.migrateYesterdayTasks(); }));
+      menu.addItem(item => item.setTitle('迁移所有任务到今天').setIcon('calendar-clock').onClick(() => { void this.plugin.migrateAllTasksToToday(); }));
+      menu.addItem(item => item.setTitle('流程图转导出版').setIcon('git-branch').onClick(() => { void this.mermaidToExportMd(); }));
+      const btnRect: DOMRect = convertMenuBtn.getBoundingClientRect();
+      menu.showAtPosition({ x: btnRect.left, y: btnRect.bottom });
+    };
+
     const listViewBtn = toolbar.createEl('button', {
       text: '☰ 列表',
-      cls: `fc-toolbar-pill ${this.viewMode === 'list' ? 'is-active' : ''}`
+      cls: `fc-cmd-btn ${this.viewMode === 'list' ? 'is-active' : ''}`
     });
     listViewBtn.onclick = () => { this.viewMode = 'list'; this.renderView(); };
     const tableViewBtn = toolbar.createEl('button', {
       text: '▦ 表格',
-      cls: `fc-toolbar-pill ${this.viewMode === 'table' ? 'is-active' : ''}`
+      cls: `fc-cmd-btn ${this.viewMode === 'table' ? 'is-active' : ''}`
     });
     tableViewBtn.onclick = () => { this.viewMode = 'table'; this.renderView(); };
-
-    // 查找功能按钮
-    const findBrokenImagesBtn = toolbar.createEl('button', { text: '查找失效图片' });
-    findBrokenImagesBtn.onclick = () => this.findBrokenImages();
-
-    const fixBrokenLinksBtn = toolbar.createEl('button', { text: '一键修正失效文件链接' });
-    fixBrokenLinksBtn.onclick = () => { void this.fixBrokenFileLinks(); };
-
-    const findUnreferencedImagesBtn = toolbar.createEl('button', { text: '查找未引用图片' });
-    findUnreferencedImagesBtn.onclick = () => this.findUnreferencedImages();
-
-    const findUntaggedBtn = toolbar.createEl('button', { text: '查找无标签笔记' });
-    findUntaggedBtn.onclick = () => this.findUntaggedNotes();
-
-    const findOrphanBtn = toolbar.createEl('button', { text: '查找孤立笔记' });
-    findOrphanBtn.onclick = () => this.findOrphanNotes();
-
-    const findEmptyBtn = toolbar.createEl('button', { text: '查找空文件' });
-    findEmptyBtn.onclick = () => this.findEmptyFiles();
-
-    // 图片重命名（文件名-001 格式）
-    const renameImagesBtn = toolbar.createEl('button', { text: '图片重命名(文件名-001)' });
-    renameImagesBtn.onclick = () => this.renameImagesToNoteName();
-
-    // 图片路径风格切换
-    const toRelativePathBtn = toolbar.createEl('button', { text: '图片转相对路径' });
-    toRelativePathBtn.onclick = () => this.convertImageLinksToRelativePath();
-
-    const toSimplePathBtn = toolbar.createEl('button', { text: '图片转最简路径' });
-    toSimplePathBtn.onclick = () => this.convertImageLinksToSimplePath();
-
-    // 日记归档 / 还原
-    const mergeJournalsBtn = toolbar.createEl('button', { text: '一键归档日志' });
-    mergeJournalsBtn.onclick = () => this.mergeJournalsToMonth();
-
-    const splitJournalsBtn = toolbar.createEl('button', { text: '一键还原日志' });
-    splitJournalsBtn.onclick = () => this.monthToDaily();
-
-    const mergeConflictBtn = toolbar.createEl('button', { text: '合并 iCloud 冲突文件' });
-    mergeConflictBtn.onclick = () => { void this.plugin.mergeIcloudConflictFiles(true); };
-
-    // 任务迁移
-    const migrateYesterdayBtn = toolbar.createEl('button', { text: '迁移昨日任务到今天' });
-    migrateYesterdayBtn.onclick = () => { void this.plugin.migrateYesterdayTasks(); };
-
-    const migrateAllTasksBtn = toolbar.createEl('button', { text: '迁移所有任务到今天' });
-    migrateAllTasksBtn.onclick = () => { void this.plugin.migrateAllTasksToToday(); };
-
-    // 流程图转导出版
-    const mermaidExportBtn = toolbar.createEl('button', { text: '流程图转导出版' });
-    mermaidExportBtn.onclick = () => this.mermaidToExportMd();
-
-    // 按标签筛选按钮
-    const filterByTagBtn = toolbar.createEl('button', { text: '按标签筛选' });
-    filterByTagBtn.onclick = () => this.showTagFilterModal();
-
-    // 按文件夹筛选按钮
-    const filterByFolderBtn = toolbar.createEl('button', { text: '按文件夹筛选' });
-    filterByFolderBtn.onclick = () => this.showFolderSelectModal();
 
     // 选中计数
     const countDiv = toolbar.createDiv({ cls: 'batch-manager-count' });
@@ -3363,10 +3349,10 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    new Setting(containerEl).setName('批量文件管理器设置').setHeading();
+    new Setting(containerEl).setName('标签').setHeading();
 
     // 标签设置
-    new Setting(containerEl).setName('标签设置').setHeading();
+    new Setting(containerEl).setName('标签').setHeading();
 
     new Setting(containerEl)
       .setName('默认标签')
@@ -3393,7 +3379,7 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
         }));
 
     // 图片扫描设置
-    new Setting(containerEl).setName('图片扫描设置').setHeading();
+    new Setting(containerEl).setName('图片扫描').setHeading();
 
     new Setting(containerEl)
       .setName('扫描外部图片')
@@ -3462,7 +3448,7 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
         }));
 
     const donateSection = containerEl.createDiv({ cls: 'plugin-donate-section' });
-    new Setting(donateSection).setName('☕ 请作者喝杯咖啡').setHeading();
+    new Setting(donateSection).setName('打赏').setHeading();
     donateSection.createEl('p', { text: '如果这个插件帮助了你，欢迎请作者喝杯咖啡 ☕', cls: 'plugin-donate-desc' });
     const imgWrap = donateSection.createDiv({ cls: 'plugin-donate-qr' });
     const donateImg = imgWrap.createEl('img', { attr: { src: "https://raw.githubusercontent.com/fengshuzi/images/main/wechat-donate.jpg", alt: '微信打赏' }, cls: 'plugin-donate-img' });
