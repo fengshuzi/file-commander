@@ -138,6 +138,24 @@ interface BrokenFileLink {
   suggestedPath: string | null;
 }
 
+type MarkdownIssueType = 'task-list-space' | 'heading-space' | 'unclosed-code-block' | 'mixed-indent';
+
+interface MarkdownFormatIssue {
+  sourceFile: TFile;
+  line: number;
+  originalText: string;
+  types: MarkdownIssueType[];
+  fixable: boolean;
+  suggestedText: string | null;
+}
+
+const MARKDOWN_ISSUE_LABELS: Record<MarkdownIssueType, string> = {
+  'task-list-space': '任务列表格式',
+  'heading-space': '标题缺空格',
+  'unclosed-code-block': '代码块未闭合',
+  'mixed-indent': '列表缩进应为Tab',
+};
+
 interface MermaidApi {
   initialize: (config: { startOnLoad?: boolean; securityLevel?: string }) => void;
   render: (id: string, code: string) => Promise<{ svg: string }>;
@@ -842,6 +860,167 @@ class BrokenFileLinksModal extends Modal {
   }
 }
 
+/**
+ * Markdown 格式检测的「预览 -> 确认」弹窗。
+ * 按文档分组，每个文档可单独修复，底部提供全部修复。
+ */
+class MarkdownFormatIssuesModal extends Modal {
+  private issues: MarkdownFormatIssue[];
+  private onFix: (issues: MarkdownFormatIssue[]) => Promise<number>;
+  private onCloseCallback: () => void;
+
+  constructor(
+    app: App,
+    issues: MarkdownFormatIssue[],
+    onFix: (issues: MarkdownFormatIssue[]) => Promise<number>,
+    onCloseCallback: () => void
+  ) {
+    super(app);
+    this.issues = issues;
+    this.onFix = onFix;
+    this.onCloseCallback = onCloseCallback;
+  }
+
+  onOpen() {
+    this.contentEl.addClass('fc-broken-links-modal');
+    this.render();
+  }
+
+  private render() {
+    const { contentEl } = this;
+    contentEl.empty();
+
+    const fixable = this.issues.filter(i => i.fixable);
+
+    contentEl.createEl('h2', { text: 'Markdown 格式检测' });
+
+    // 按文件分组
+    const byFile = new Map<string, { file: TFile; issues: MarkdownFormatIssue[] }>();
+    for (const issue of this.issues) {
+      let group = byFile.get(issue.sourceFile.path);
+      if (!group) {
+        group = { file: issue.sourceFile, issues: [] };
+        byFile.set(issue.sourceFile.path, group);
+      }
+      group.issues.push(issue);
+    }
+
+    const description = contentEl.createEl('p', { cls: 'modal-description fc-mb-15' });
+    description.setText(
+      `共 ${byFile.size} 个文档，${this.issues.length} 处问题，其中 ${fixable.length} 处可修复。`
+    );
+
+    if (this.issues.length === 0) {
+      contentEl.createEl('p', { text: '未发现 Markdown 格式问题', cls: 'modal-description' });
+      const closeContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+      const closeBtn = closeContainer.createEl('button', { text: '关闭', cls: 'mod-cta' });
+      closeBtn.onclick = () => this.close();
+      return;
+    }
+
+    const scrollContainer = contentEl.createDiv({ cls: 'fc-broken-links-list' });
+
+    for (const { file, issues: fileIssues } of byFile.values()) {
+      const fileFixable = fileIssues.filter(i => i.fixable);
+      const item = scrollContainer.createDiv({ cls: 'fc-broken-link-item' });
+
+      // 文件头：路径 + 问题数 + 修复按钮
+      const header = item.createDiv({ cls: 'fc-broken-link-header' });
+      const fileSpan = header.createSpan({
+        cls: 'fc-broken-link-file fc-broken-link-jump',
+        text: file.path
+      });
+      fileSpan.setAttr('title', '点击跳转到文件');
+      fileSpan.onclick = () => { void this.jumpToSource(fileIssues[0]); };
+
+      header.createSpan({ cls: 'fc-broken-link-type', text: `${fileIssues.length} 处` });
+
+      if (fileFixable.length > 0) {
+        const fixBtn = header.createEl('button', {
+          text: `修复 (${fileFixable.length})`,
+          cls: 'fc-broken-link-btn mod-cta'
+        });
+        fixBtn.onclick = async () => {
+          fixBtn.disabled = true;
+          const count = await this.onFix(fileFixable);
+          if (count > 0) {
+            const fixedSet = new Set(fileFixable);
+            this.issues = this.issues.filter(i => !fixedSet.has(i));
+            this.render();
+          } else {
+            fixBtn.disabled = false;
+          }
+        };
+      }
+
+      // 该文件的问题列表
+      const body = item.createDiv({ cls: 'fc-broken-link-body' });
+      for (const issue of fileIssues) {
+        const typeLabel = issue.types.map(t => MARKDOWN_ISSUE_LABELS[t]).join('、');
+        const issueLine = body.createDiv({
+          cls: 'fc-broken-link-orig fc-broken-link-jump',
+          text: `L${issue.line} [${typeLabel}] ${issue.originalText}`
+        });
+        issueLine.setAttr('title', '点击跳转到原文');
+        issueLine.onclick = () => { void this.jumpToSource(issue); };
+
+        if (issue.fixable && issue.suggestedText !== null) {
+          const suggestLine = body.createDiv({ cls: 'fc-broken-link-suggest' });
+          suggestLine.createSpan({ text: '建议: ', cls: 'fc-broken-link-label' });
+          suggestLine.createEl('code', { text: issue.suggestedText });
+        } else {
+          const skipLine = body.createDiv({ cls: 'fc-broken-link-suggest' });
+          skipLine.createSpan({ text: '需手动处理，无法自动修复', cls: 'fc-broken-link-skip' });
+        }
+      }
+    }
+
+    // 底部按钮
+    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container fc-btn-spread' });
+    const closeBtn = buttonContainer.createEl('button', { text: '关闭' });
+    closeBtn.onclick = () => this.close();
+
+    const fixAllBtn = buttonContainer.createEl('button', {
+      text: `全部修复 (${fixable.length})`,
+      cls: 'mod-cta'
+    });
+    fixAllBtn.disabled = fixable.length === 0;
+    fixAllBtn.onclick = async () => {
+      fixAllBtn.disabled = true;
+      const count = await this.onFix(fixable);
+      if (count > 0) {
+        this.issues = this.issues.filter(i => !i.fixable);
+        this.render();
+      } else {
+        fixAllBtn.disabled = false;
+      }
+    };
+  }
+
+  /** 打开源文件并定位到问题所在行 */
+  private async jumpToSource(issue: MarkdownFormatIssue) {
+    this.close();
+    const leaf = this.app.workspace.getLeaf(false);
+    await leaf.openFile(issue.sourceFile);
+
+    const view = leaf.view;
+    if (view instanceof MarkdownView) {
+      const editor = view.editor;
+      const line = Math.max(0, issue.line - 1);
+      const lineText = editor.getLine(line);
+      const from = { line, ch: 0 };
+      const to = { line, ch: lineText.length };
+      editor.setSelection(from, to);
+      editor.scrollIntoView({ from, to }, true);
+    }
+  }
+
+  onClose() {
+    this.contentEl.empty();
+    this.onCloseCallback();
+  }
+}
+
 class BatchFileManagerView extends ItemView {
   private files: FileItem[] = [];
   private allFiles: FileItem[] = []; // 保存所有文件
@@ -1004,6 +1183,7 @@ class BatchFileManagerView extends ItemView {
       menu.addItem(item => item.setTitle('无标签笔记').setIcon('tag-off').onClick(() => this.findUntaggedNotes()));
       menu.addItem(item => item.setTitle('孤立笔记').setIcon('unlink').onClick(() => this.findOrphanNotes()));
       menu.addItem(item => item.setTitle('空文件').setIcon('file-minimal').onClick(() => this.findEmptyFiles()));
+      menu.addItem(item => item.setTitle('Markdown 格式检测').setIcon('scan-search').onClick(() => { void this.checkMarkdownFormat(); }));
       const btnRect: DOMRect = findMenuBtn.getBoundingClientRect();
       menu.showAtPosition({ x: btnRect.left, y: btnRect.bottom });
     };
@@ -2650,6 +2830,232 @@ class BatchFileManagerView extends ItemView {
     
     const scope = this.selectedFolder ? `文件夹 "${this.selectedFolder.path}" 中` : '';
     new Notice(`${scope}发现 ${emptyFiles.length} 个空文件`);
+  }
+
+  /** Markdown 格式检测：扫描 -> 预览确认 -> 执行修复 */
+  private async checkMarkdownFormat() {
+    new Notice('正在扫描 Markdown 格式问题...');
+    const issues = await this.collectMarkdownFormatIssues();
+
+    if (issues.length === 0) {
+      new Notice('未发现 Markdown 格式问题');
+      return;
+    }
+
+    // 将包含格式问题的笔记显示在文件列表中
+    const affectedFiles = Array.from(new Map(issues.map(i => [i.sourceFile.path, i.sourceFile])).values());
+    this.allFiles = affectedFiles.map(file => ({ file, selected: false }));
+    this.files = [...this.allFiles];
+    this.files.sort((a, b) => a.file.path.localeCompare(b.file.path));
+    this.renderView();
+
+    new MarkdownFormatIssuesModal(
+      this.app,
+      issues,
+      (fixable) => this.fixMarkdownIssues(fixable),
+      () => { this.loadFiles(); }
+    ).open();
+  }
+
+  /** 扫描所有 Markdown 文件，收集格式问题 */
+  private async collectMarkdownFormatIssues(): Promise<MarkdownFormatIssue[]> {
+    const allMarkdownFiles = this.app.vault.getMarkdownFiles();
+    const issues: MarkdownFormatIssue[] = [];
+
+    for (const file of allMarkdownFiles) {
+      try {
+        const content = await this.app.vault.cachedRead(file);
+        const lines = content.split('\n');
+
+        let inCodeBlock = false;
+        let fenceChar = '';
+        let unclosedFenceLine = 0;
+
+        const spaceIndentLineNums: number[] = [];
+
+        const lineIssues = new Map<number, Set<MarkdownIssueType>>();
+        const addIssue = (lineNum: number, type: MarkdownIssueType) => {
+          let set = lineIssues.get(lineNum);
+          if (!set) {
+            set = new Set();
+            lineIssues.set(lineNum, set);
+          }
+          set.add(type);
+        };
+
+        let inFrontmatter = false;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const lineNum = i + 1;
+
+          // Frontmatter（仅文件起始位置）
+          if (i === 0 && line.trim() === '---') {
+            inFrontmatter = true;
+            continue;
+          }
+          if (inFrontmatter) {
+            if (line.trim() === '---') {
+              inFrontmatter = false;
+            }
+            continue;
+          }
+
+          // 围栏代码块跟踪
+          const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
+          if (fenceMatch) {
+            const fc = fenceMatch[1][0];
+            if (!inCodeBlock) {
+              inCodeBlock = true;
+              fenceChar = fc;
+              unclosedFenceLine = lineNum;
+            } else if (fc === fenceChar) {
+              inCodeBlock = false;
+              fenceChar = '';
+            }
+            continue;
+          }
+
+          if (inCodeBlock) continue;
+
+          // 缩进检测（只检查 -/*/+ 列表项的缩进，标记后必须跟空白才算列表项）
+          const isHorizontalRule = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(line);
+          const listIndentMatch = line.match(/^(\s+)([-*+])\s/);
+          if (listIndentMatch && listIndentMatch[1].includes(' ') && !isHorizontalRule) {
+            spaceIndentLineNums.push(lineNum);
+          }
+
+          // 任务列表缺空格: -[] / -[x] / -[X] / - [X]
+          if (/^(\s*)([-*+])\[( |x|X)\]/.test(line) || /^(\s*)([-*+]) \[X\]/.test(line)) {
+            addIssue(lineNum, 'task-list-space');
+          }
+
+          // 标题缺空格: ##title（2-6 个 # 后无空格，单 # 视为标签跳过）
+          if (/^ {0,3}#{2,6}(?=[^\s#])/.test(line)) {
+            addIssue(lineNum, 'heading-space');
+          }
+
+        }
+
+        // 代码块未闭合
+        if (inCodeBlock) {
+          issues.push({
+            sourceFile: file,
+            line: unclosedFenceLine,
+            originalText: lines[unclosedFenceLine - 1] || '',
+            types: ['unclosed-code-block'],
+            fixable: false,
+            suggestedText: null,
+          });
+        }
+
+        // 列表缩进用了空格，统一改为 tab（2 空格 = 1 tab）
+        for (const lineNum of spaceIndentLineNums) {
+          addIssue(lineNum, 'mixed-indent');
+        }
+
+        // 为每个有问题的行创建 issue
+        for (const [lineNum, types] of lineIssues) {
+          const originalText = lines[lineNum - 1] || '';
+          const fixable = !types.has('unclosed-code-block');
+          const suggestedText = fixable ? this.applyLineFixes(originalText, types) : null;
+          issues.push({
+            sourceFile: file,
+            line: lineNum,
+            originalText,
+            types: Array.from(types),
+            fixable,
+            suggestedText,
+          });
+        }
+      } catch (error) {
+        console.error(`扫描 Markdown 格式失败: ${file.path}`, error);
+      }
+    }
+
+    return issues;
+  }
+
+  /** 对单行应用所有相关修复 */
+  private applyLineFixes(line: string, types: Set<MarkdownIssueType>): string {
+    let result = line;
+    // 先修缩进（影响前导空白）：空格转 tab（2 空格 = 1 tab，与旧版 2 空格替换一致以便还原）
+    if (types.has('mixed-indent')) {
+      result = result.replace(/^\s+/, (match: string) => {
+        let tabs = 0;
+        let spaces = 0;
+        for (const ch of match) {
+          if (ch === '\t') tabs++;
+          else spaces++;
+        }
+        return '\t'.repeat(tabs + Math.floor(spaces / 2)) + ' '.repeat(spaces % 2);
+      });
+    }
+    // 再修内容
+    if (types.has('task-list-space')) {
+      result = result
+        .replace(/^(\s*)([-*+])\[( |x|X)\]/, (_match: string, indent: string, marker: string, box: string) => `${indent}${marker} [${box.toLowerCase()}]`)
+        .replace(/^(\s*)([-*+]) \[X\]/, '$1$2 [x]');
+    }
+    if (types.has('heading-space')) {
+      result = result.replace(/^( {0,3})(#{2,6})(?=[^\s#])/, '$1$2 ');
+    }
+    return result;
+  }
+
+  /** 应用 Markdown 格式修复，返回成功修复的文件数 */
+  private async fixMarkdownIssues(issues: MarkdownFormatIssue[]): Promise<number> {
+    const fixable = issues.filter(i => i.fixable);
+    if (fixable.length === 0) return 0;
+
+    // 按文件分组，再按行分组，每个文件只读写一次
+    const byFile = new Map<TFile, Map<number, Set<MarkdownIssueType>>>();
+    for (const issue of fixable) {
+      let lineMap = byFile.get(issue.sourceFile);
+      if (!lineMap) {
+        lineMap = new Map();
+        byFile.set(issue.sourceFile, lineMap);
+      }
+      for (const type of issue.types) {
+        let set = lineMap.get(issue.line);
+        if (!set) {
+          set = new Set();
+          lineMap.set(issue.line, set);
+        }
+        set.add(type);
+      }
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const [file, lineMap] of byFile) {
+      try {
+        const content = await this.app.vault.read(file);
+        const lines = content.split('\n');
+        let changed = false;
+        for (const [lineNum, types] of lineMap) {
+          if (lineNum >= 1 && lineNum <= lines.length) {
+            const fixed = this.applyLineFixes(lines[lineNum - 1], types);
+            if (fixed !== lines[lineNum - 1]) {
+              lines[lineNum - 1] = fixed;
+              changed = true;
+            }
+          }
+        }
+        if (changed) {
+          const newContent = lines.join('\n');
+          await this.app.vault.modify(file, newContent);
+          successCount++;
+        }
+      } catch (error) {
+        console.error(`修复 Markdown 格式失败: ${file.path}`, error);
+        failCount++;
+      }
+    }
+
+    new Notice(`Markdown 格式修复完成: 成功 ${successCount} 个文件，失败 ${failCount} 个`);
+    return successCount;
   }
 
   /** 获取笔记内嵌入的图片文件（按出现顺序，去重） */
