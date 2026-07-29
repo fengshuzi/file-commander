@@ -1143,6 +1143,8 @@ class BatchFileManagerView extends ItemView {
       menu.addItem(item => item.setTitle('图片转最简路径').setIcon('image').onClick(() => { void this.convertImageLinksToSimplePath(); }));
       menu.addItem(item => item.setTitle('一键归档日志').setIcon('archive').onClick(() => { void this.mergeJournalsToMonth(); }));
       menu.addItem(item => item.setTitle('一键还原日志').setIcon('switch').onClick(() => { void this.monthToDaily(); }));
+      menu.addItem(item => item.setTitle('隐藏归档日志').setIcon('eye-off').onClick(() => { void this.hideArchivedJournals(); }));
+      menu.addItem(item => item.setTitle('展示归档日志').setIcon('eye').onClick(() => { void this.showArchivedJournals(); }));
       menu.addItem(item => item.setTitle('流程图转导出版').setIcon('git-branch').onClick(() => { void this.mermaidToExportMd(); }));
       menu.addSeparator();
       menu.addItem(item => item.setTitle('删除选中').setIcon('trash').onClick(() => this.deleteSelected()));
@@ -1197,6 +1199,8 @@ class BatchFileManagerView extends ItemView {
       menu.addSeparator();
       menu.addItem(item => item.setTitle('一键归档日志').setIcon('archive').onClick(() => { void this.mergeJournalsToMonth(); }));
       menu.addItem(item => item.setTitle('一键还原日志').setIcon('switch').onClick(() => { void this.monthToDaily(); }));
+      menu.addItem(item => item.setTitle('隐藏归档日志').setIcon('eye-off').onClick(() => { void this.hideArchivedJournals(); }));
+      menu.addItem(item => item.setTitle('展示归档日志').setIcon('eye').onClick(() => { void this.showArchivedJournals(); }));
       menu.addItem(item => item.setTitle('合并 iCloud 冲突文件').setIcon('merge').onClick(() => { void this.plugin.mergeIcloudConflictFiles(true); }));
       menu.addItem(item => item.setTitle('迁移昨日任务到今天').setIcon('calendar').onClick(() => { void this.plugin.migrateYesterdayTasks(); }));
       menu.addItem(item => item.setTitle('迁移所有任务到今天').setIcon('calendar-clock').onClick(() => { void this.plugin.migrateAllTasksToToday(); }));
@@ -2485,48 +2489,18 @@ class BatchFileManagerView extends ItemView {
       // 方法2：直接读取文件内容匹配（解决缓存延迟问题）
       try {
         const content = await this.app.vault.cachedRead(md);
-        // 匹配 ![xxx](yyy) 格式
-        const mdLinkRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
-        let match;
-        while ((match = mdLinkRegex.exec(content)) !== null) {
-          const linkPath = match[1];
-          const decoded = this.safeDecodeUriPath(linkPath);
-          const variants = decoded !== linkPath ? [linkPath, decoded] : [linkPath];
-          
-          for (const variant of variants) {
-            // 尝试完整路径
-            if (imagePathSet.has(variant)) {
-              referencedPaths.add(variant);
-              break;
-            }
-            // 尝试仅文件名匹配（简写链接如 ![](xxx.png)）
-            const fileName = variant.split('/').pop()?.toLowerCase();
-            if (fileName && imageNameToPath.has(fileName)) {
-              referencedPaths.add(imageNameToPath.get(fileName));
-              break;
-            }
-          }
-        }
-        
-        // 匹配 ![[xxx]] 格式
-        const wikiLinkRegex = /!\[\[([^\]]+)\]\]/g;
-        while ((match = wikiLinkRegex.exec(content)) !== null) {
-          const linkPath = match[1].split('|')[0]; // 去除别名
-          const decoded = this.safeDecodeUriPath(linkPath);
-          const variants = decoded !== linkPath ? [linkPath, decoded] : [linkPath];
-          
-          for (const variant of variants) {
-            if (imagePathSet.has(variant)) {
-              referencedPaths.add(variant);
-              break;
-            }
-            const fileName = variant.split('/').pop()?.toLowerCase();
-            if (fileName && imageNameToPath.has(fileName)) {
-              referencedPaths.add(imageNameToPath.get(fileName));
-              break;
-            }
-          }
-        }
+        this.collectImageRefsFromContent(content, imagePathSet, imageNameToPath, referencedPaths);
+      } catch {
+        // 读取失败时忽略
+      }
+    }
+
+    // 隐藏的归档日志（.md.hide）不在 markdown 索引中，但其中引用的图片仍算被引用
+    const hiddenMdFiles = this.app.vault.getFiles().filter(f => f.name.endsWith('.md.hide'));
+    for (const hidden of hiddenMdFiles) {
+      try {
+        const content = await this.app.vault.cachedRead(hidden);
+        this.collectImageRefsFromContent(content, imagePathSet, imageNameToPath, referencedPaths);
       } catch {
         // 读取失败时忽略
       }
@@ -2543,6 +2517,48 @@ class BatchFileManagerView extends ItemView {
     this.files.sort((a, b) => a.file.path.localeCompare(b.file.path));
     this.renderView();
     new Notice(`发现 ${unreferenced.length} 张未引用图片`);
+  }
+
+  /** 从文本内容中提取图片引用（![x](y) 与 ![[x]] 两种格式），命中则加入 referencedPaths */
+  private collectImageRefsFromContent(
+    content: string,
+    imagePathSet: Set<string>,
+    imageNameToPath: Map<string, string>,
+    referencedPaths: Set<string>
+  ) {
+    const addRef = (rawLink: string) => {
+      const decoded = this.safeDecodeUriPath(rawLink);
+      const variants = decoded !== rawLink ? [rawLink, decoded] : [rawLink];
+      for (const variant of variants) {
+        // 尝试完整路径
+        if (imagePathSet.has(variant)) {
+          referencedPaths.add(variant);
+          return;
+        }
+        // 尝试仅文件名匹配（简写链接如 ![](xxx.png)）
+        const fileName = variant.split('/').pop()?.toLowerCase();
+        if (fileName) {
+          const hit = imageNameToPath.get(fileName);
+          if (hit) {
+            referencedPaths.add(hit);
+            return;
+          }
+        }
+      }
+    };
+
+    // 匹配 ![xxx](yyy) 格式
+    const mdLinkRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+    let match;
+    while ((match = mdLinkRegex.exec(content)) !== null) {
+      addRef(match[1]);
+    }
+
+    // 匹配 ![[xxx]] 格式
+    const wikiLinkRegex = /!\[\[([^\]]+)\]\]/g;
+    while ((match = wikiLinkRegex.exec(content)) !== null) {
+      addRef(match[1].split('|')[0]); // 去除别名
+    }
   }
 
   /** 尝试对 URL 编码的路径解码（如 %20 -> 空格），解码失败则返回原串 */
@@ -3384,6 +3400,72 @@ class BatchFileManagerView extends ItemView {
       await this.app.fileManager.trashFile(mf);
     }
     new Notice(`一键还原完成: 还原 ${totalRestored} 个日文件`);
+    this.loadFiles();
+  }
+
+  /** 隐藏归档日志：将 journals 下 yyyy-MM.md（当月除外）改名为 yyyy-MM.md.hide，Obsidian 不再索引 */
+  private async hideArchivedJournals() {
+    const dir = this.plugin.settings.journalsFolder?.trim() || 'journals';
+    const folder = this.app.vault.getAbstractFileByPath(dir);
+    if (!folder || !(folder instanceof TFolder)) {
+      new Notice(`日记文件夹不存在: ${dir}`);
+      return;
+    }
+    const now = new Date();
+    const currentYm = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
+    const monthPattern = /^(\d{4})-(\d{2})\.md$/;
+    const targets: TFile[] = [];
+    for (const child of folder.children) {
+      if (!(child instanceof TFile)) continue;
+      const m = child.name.match(monthPattern);
+      if (!m) continue;
+      if (`${m[1]}-${m[2]}` === currentYm) continue;
+      targets.push(child);
+    }
+    if (targets.length === 0) {
+      new Notice('没有可隐藏的归档日志');
+      return;
+    }
+    let hidden = 0;
+    for (const file of targets) {
+      await this.app.vault.rename(file, `${file.path}.hide`);
+      hidden++;
+    }
+    new Notice(`已隐藏 ${hidden} 个月归档文件（后缀改为 .md.hide）`);
+    this.loadFiles();
+  }
+
+  /** 展示归档日志：将 journals 下所有 yyyy-MM.md.hide 改回 yyyy-MM.md */
+  private async showArchivedJournals() {
+    const dir = this.plugin.settings.journalsFolder?.trim() || 'journals';
+    const folder = this.app.vault.getAbstractFileByPath(dir);
+    if (!folder || !(folder instanceof TFolder)) {
+      new Notice(`日记文件夹不存在: ${dir}`);
+      return;
+    }
+    const hidePattern = /^(\d{4})-(\d{2})\.md\.hide$/;
+    const targets: TFile[] = [];
+    for (const child of folder.children) {
+      if (!(child instanceof TFile)) continue;
+      if (hidePattern.test(child.name)) targets.push(child);
+    }
+    if (targets.length === 0) {
+      new Notice('没有已隐藏的归档日志');
+      return;
+    }
+    let restored = 0;
+    let skipped = 0;
+    for (const file of targets) {
+      const newPath = file.path.slice(0, -'.hide'.length);
+      if (this.app.vault.getAbstractFileByPath(newPath)) {
+        skipped++;
+        continue;
+      }
+      await this.app.vault.rename(file, newPath);
+      restored++;
+    }
+    const suffix = skipped > 0 ? `，跳过 ${skipped} 个（同名 .md 已存在）` : '';
+    new Notice(`已恢复 ${restored} 个月归档文件${suffix}`);
     this.loadFiles();
   }
 
