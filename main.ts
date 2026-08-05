@@ -4165,7 +4165,7 @@ export default class BatchFileManagerPlugin extends Plugin {
       }
     }
     if (!targetFile) {
-      targetContent = `# ${targetDate} 日记\n\n`;
+      targetContent = '';
     }
     const { tasks: existingTasks } = this.splitContentByTasks(targetContent);
     const existingTaskKeys = new Set(existingTasks.map(block => block.join('\n')));
@@ -4174,10 +4174,12 @@ export default class BatchFileManagerPlugin extends Plugin {
       if (showNotice) new Notice(`${targetDate} 已存在相同任务，无需迁移`);
       return 0;
     }
-    if (!targetContent.endsWith('\n')) {
-      targetContent += '\n';
-    } else if (!targetContent.endsWith('\n\n')) {
-      targetContent += '\n';
+    if (targetContent.length > 0) {
+      if (!targetContent.endsWith('\n')) {
+        targetContent += '\n';
+      } else if (!targetContent.endsWith('\n\n')) {
+        targetContent += '\n';
+      }
     }
     targetContent += newTasks.map(block => block.join('\n')).join('\n') + '\n';
     try {
