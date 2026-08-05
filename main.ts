@@ -72,6 +72,39 @@ function recordEntries<K extends string, V>(record: Record<K, V>): Array<[K, V]>
   return Object.entries(record) as Array<[K, V]>;
 }
 
+/** 合并两个月归档文件内容：按 `## yyyy-MM-dd` 分段后逐行去重合并 */
+function mergeMonthFileContents(baseContent: string, extraContent: string): string {
+  const sectionHeader = /^(?:- )?## (\d{4}-\d{2}-\d{2})\s*$/gm;
+  const parseSections = (content: string): { preamble: string; sections: Record<string, string> } => {
+    const parts = content.split(sectionHeader);
+    const sections: Record<string, string> = {};
+    for (let i = 1; i + 1 < parts.length; i += 2) {
+      sections[parts[i].trim()] = parts[i + 1].trim();
+    }
+    return { preamble: parts[0].trim(), sections };
+  };
+  const base = parseSections(baseContent);
+  const extra = parseSections(extraContent);
+  if (recordEntries(extra.sections).length === 0) {
+    return mergeLinesWithoutDuplicates(baseContent, extraContent).merged;
+  }
+  let preamble = base.preamble;
+  if (extra.preamble) {
+    preamble = preamble ? mergeLinesWithoutDuplicates(preamble, extra.preamble).merged : extra.preamble;
+  }
+  const sections = base.sections;
+  for (const [dateStr, content] of recordEntries(extra.sections)) {
+    sections[dateStr] = sections[dateStr]
+      ? mergeLinesWithoutDuplicates(sections[dateStr], content).merged
+      : content;
+  }
+  const body = recordEntries(sections)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([d, c]) => `## ${d}\n\n${c}\n\n`)
+    .join('\n');
+  return preamble ? `${preamble}\n\n${body}` : body;
+}
+
 function getImagePathFromMatch(match: RegExpMatchArray): string | undefined {
   const wikiPath = match[1];
   const mdPath = match[3];
@@ -3316,11 +3349,16 @@ class BatchFileManagerView extends ItemView {
     let totalDeleted = 0;
     for (const month of Object.keys(monthEntries).sort()) {
       const outputPath = dir ? `${dir}/${month}.md` : `${month}.md`;
+      // 已隐藏的归档（.md.hide）存在时直接合并进隐藏文件，不再创建可见的月文件
+      let targetFile = this.app.vault.getAbstractFileByPath(outputPath);
+      if (!(targetFile instanceof TFile)) {
+        const hideFile = this.app.vault.getAbstractFileByPath(`${outputPath}.hide`);
+        if (hideFile instanceof TFile) targetFile = hideFile;
+      }
       let existing: Record<string, string> = {};
-      const existingFile = this.app.vault.getAbstractFileByPath(outputPath);
-      if (existingFile && existingFile instanceof TFile) {
+      if (targetFile instanceof TFile) {
         try {
-          const content = await this.app.vault.read(existingFile);
+          const content = await this.app.vault.read(targetFile);
           const parts = content.split(sectionHeader);
           for (let i = 1; i + 1 < parts.length; i += 2) {
             const d = parts[i].trim();
@@ -3331,14 +3369,17 @@ class BatchFileManagerView extends ItemView {
         }
       }
       for (const { dateStr, content } of monthEntries[month]) {
-        existing[dateStr] = content;
+        // 逐行去重合并，避免 iCloud 同步回来的旧副本覆盖已有内容
+        existing[dateStr] = existing[dateStr]
+          ? mergeLinesWithoutDuplicates(existing[dateStr], content).merged
+          : content;
       }
       const entries = recordEntries(existing)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([d, c]) => `## ${d}\n\n${c}\n\n`);
       const body = entries.join('\n');
-      if (existingFile && existingFile instanceof TFile) {
-        await this.app.vault.modify(existingFile, body);
+      if (targetFile instanceof TFile) {
+        await this.app.vault.modify(targetFile, body);
       } else {
         await this.app.vault.create(outputPath, body);
       }
@@ -3427,11 +3468,32 @@ class BatchFileManagerView extends ItemView {
       return;
     }
     let hidden = 0;
+    let mergedIntoHide = 0;
+    let failed = 0;
     for (const file of targets) {
-      await this.app.vault.rename(file, `${file.path}.hide`);
-      hidden++;
+      const hidePath = `${file.path}.hide`;
+      try {
+        const existingHide = this.app.vault.getAbstractFileByPath(hidePath);
+        if (existingHide instanceof TFile) {
+          // 同名 .hide 已存在（iCloud 可能同步回了旧副本）：逐行去重合并后删除可见文件
+          const hideContent = await this.app.vault.read(existingHide);
+          const visibleContent = await this.app.vault.read(file);
+          await this.app.vault.modify(existingHide, mergeMonthFileContents(hideContent, visibleContent));
+          await this.app.fileManager.trashFile(file);
+          mergedIntoHide++;
+          continue;
+        }
+        await this.app.vault.rename(file, hidePath);
+        hidden++;
+      } catch (error) {
+        failed++;
+        console.error(`隐藏归档日志失败: ${file.path}`, error);
+      }
     }
-    new Notice(`已隐藏 ${hidden} 个月归档文件（后缀改为 .md.hide）`);
+    const summaryParts = [`已隐藏 ${hidden} 个月归档文件（后缀改为 .md.hide）`];
+    if (mergedIntoHide > 0) summaryParts.push(`合并 ${mergedIntoHide} 个到已有隐藏文件`);
+    if (failed > 0) summaryParts.push(`失败 ${failed} 个`);
+    new Notice(summaryParts.join('，'));
     this.loadFiles();
   }
 
