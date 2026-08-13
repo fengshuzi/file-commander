@@ -171,6 +171,15 @@ interface BrokenFileLink {
   suggestedPath: string | null;
 }
 
+interface BrokenImageLink {
+  sourceFile: TFile;
+  originalText: string;
+  linkType: 'wiki' | 'markdown';
+  imagePath: string;
+  suffix: string; // wiki 图片链接 | 后的尺寸/别名参数（含 |），修正时保留
+  suggestedPath: string | null;
+}
+
 type MarkdownIssueType = 'task-list-space' | 'heading-space' | 'unclosed-code-block' | 'mixed-indent';
 
 interface MarkdownFormatIssue {
@@ -713,6 +722,155 @@ class RenameFrontmatterPropertyModal extends Modal {
   }
 }
 
+/** 单文件重命名输入弹窗（预填当前 basename） */
+class RenameInputModal extends Modal {
+  private currentName: string;
+  private onSubmit: (newName: string) => void;
+
+  constructor(app: App, currentName: string, onSubmit: (newName: string) => void) {
+    super(app);
+    this.currentName = currentName;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: '重命名笔记' });
+    contentEl.createEl('p', {
+      text: '重命名后会自动更新其他笔记中指向该文件的 Markdown 链接',
+      cls: 'modal-description'
+    });
+
+    const input = new TextComponent(contentEl);
+    input.setValue(this.currentName);
+    input.inputEl.style.width = '100%';
+    input.inputEl.style.marginTop = '10px';
+    input.inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.submit(input.getValue());
+      }
+    });
+
+    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+    const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
+    cancelBtn.onclick = () => this.close();
+    const submitBtn = buttonContainer.createEl('button', { text: '确定', cls: 'mod-cta' });
+    submitBtn.onclick = () => this.submit(input.getValue());
+
+    input.inputEl.focus();
+    input.inputEl.select();
+  }
+
+  private submit(value: string) {
+    this.close();
+    this.onSubmit(value);
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+/** 批量重命名参数输入弹窗（查找/替换/是否正则） */
+class BatchRenameModal extends Modal {
+  private onSubmit: (find: string, replace: string, useRegex: boolean) => void;
+
+  constructor(app: App, onSubmit: (find: string, replace: string, useRegex: boolean) => void) {
+    super(app);
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: '批量重命名' });
+    contentEl.createEl('p', {
+      text: '对选中文件的文件名（不含扩展名）做查找替换，重命名后自动更新指向它们的 Markdown 链接',
+      cls: 'modal-description'
+    });
+
+    const findContainer = contentEl.createDiv({ cls: 'fc-mt-10' });
+    findContainer.createEl('label', { text: '查找: ' });
+    const findInput = new TextComponent(findContainer);
+    findInput.setPlaceholder('如 旧前缀 或正则 (\\d{4})-(\\d{2})');
+    findInput.inputEl.style.width = '100%';
+
+    const replaceContainer = contentEl.createDiv({ cls: 'fc-mt-10' });
+    replaceContainer.createEl('label', { text: '替换为: ' });
+    const replaceInput = new TextComponent(replaceContainer);
+    replaceInput.setPlaceholder('如 新前缀 或 $2-$1');
+    replaceInput.inputEl.style.width = '100%';
+
+    const regexContainer = contentEl.createDiv({ cls: 'fc-mt-10' });
+    const regexCheckbox = regexContainer.createEl('input', { type: 'checkbox' });
+    regexContainer.createEl('label', { text: ' 使用正则表达式' });
+
+    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+    const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
+    cancelBtn.onclick = () => this.close();
+    const submitBtn = buttonContainer.createEl('button', { text: '预览', cls: 'mod-cta' });
+    submitBtn.onclick = () => {
+      const find = findInput.getValue();
+      if (!find) {
+        new Notice('请输入要查找的内容');
+        return;
+      }
+      this.close();
+      this.onSubmit(find, replaceInput.getValue(), regexCheckbox.checked);
+    };
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+/** 批量重命名预览确认弹窗 */
+class BatchRenamePreviewModal extends Modal {
+  private plans: Array<{ file: TFile; newPath: string }>;
+  private onConfirm: () => void;
+
+  constructor(app: App, plans: Array<{ file: TFile; newPath: string }>, onConfirm: () => void) {
+    super(app);
+    this.plans = plans;
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass('fc-broken-links-modal');
+    contentEl.createEl('h2', { text: '批量重命名预览' });
+    contentEl.createEl('p', {
+      text: `将重命名 ${this.plans.length} 个文件，并同步更新指向它们的 Markdown 链接：`,
+      cls: 'modal-description fc-mb-15'
+    });
+
+    const scrollContainer = contentEl.createDiv({ cls: 'fc-broken-links-list' });
+    for (const plan of this.plans) {
+      const item = scrollContainer.createDiv({ cls: 'fc-broken-link-item' });
+      const body = item.createDiv({ cls: 'fc-broken-link-body' });
+      const origLine = body.createDiv({ cls: 'fc-broken-link-path' });
+      origLine.createEl('code', { text: plan.file.path });
+      const newLine = body.createDiv({ cls: 'fc-broken-link-suggest' });
+      newLine.createSpan({ text: '→ ', cls: 'fc-broken-link-label' });
+      newLine.createEl('code', { text: plan.newPath });
+    }
+
+    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container fc-btn-spread' });
+    const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
+    cancelBtn.onclick = () => this.close();
+    const confirmBtn = buttonContainer.createEl('button', { text: `确认重命名 ${this.plans.length} 个文件`, cls: 'mod-cta' });
+    confirmBtn.onclick = () => {
+      this.close();
+      this.onConfirm();
+    };
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class ConfirmModal extends Modal {
   message: string;
   onConfirm: () => void;
@@ -886,6 +1044,82 @@ class BrokenFileLinksModal extends Modal {
         editor.scrollIntoView({ from, to }, true);
       }
     }
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+/** 一键修正失效图片链接的「预览 -> 确认」弹窗，复用失效文件链接弹窗样式 */
+class BrokenImageLinksModal extends Modal {
+  private links: BrokenImageLink[];
+  private onConfirm: (links: BrokenImageLink[]) => void;
+
+  constructor(app: App, links: BrokenImageLink[], onConfirm: (links: BrokenImageLink[]) => void) {
+    super(app);
+    this.links = links;
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen() {
+    this.contentEl.addClass('fc-broken-links-modal');
+    this.render();
+  }
+
+  private render() {
+    const { contentEl } = this;
+    contentEl.empty();
+
+    const fixable = this.links.filter(link => link.suggestedPath);
+    const unfixable = this.links.filter(link => !link.suggestedPath);
+
+    contentEl.createEl('h2', { text: '一键修正失效图片链接' });
+
+    const description = contentEl.createEl('p', { cls: 'modal-description fc-mb-15' });
+    description.setText(
+      `共发现 ${this.links.length} 个失效图片链接，其中 ${fixable.length} 个可按完整文件名匹配到新路径。` +
+      `请确认下列修正预览后再执行，未匹配到的 ${unfixable.length} 个不会改动。`
+    );
+
+    const scrollContainer = contentEl.createDiv({ cls: 'fc-broken-links-list' });
+
+    for (const link of [...fixable, ...unfixable]) {
+      const item = scrollContainer.createDiv({ cls: 'fc-broken-link-item' });
+
+      const header = item.createDiv({ cls: 'fc-broken-link-header' });
+      header.createSpan({ cls: 'fc-broken-link-file', text: link.sourceFile.path });
+      header.createSpan({ cls: 'fc-broken-link-type', text: link.linkType === 'wiki' ? 'wiki 图片' : 'Markdown 图片' });
+
+      const body = item.createDiv({ cls: 'fc-broken-link-body' });
+      body.createEl('div', { cls: 'fc-broken-link-orig', text: `原文: ${link.originalText}` });
+
+      const pathLine = body.createDiv({ cls: 'fc-broken-link-path' });
+      pathLine.createSpan({ text: '失效路径: ', cls: 'fc-broken-link-label' });
+      pathLine.createEl('code', { text: link.imagePath });
+
+      const suggestLine = body.createDiv({ cls: 'fc-broken-link-suggest' });
+      if (link.suggestedPath) {
+        suggestLine.createSpan({ text: '建议路径: ', cls: 'fc-broken-link-label' });
+        suggestLine.createEl('code', { text: link.suggestedPath });
+      } else {
+        suggestLine.createSpan({ text: '未匹配到同名图片，跳过', cls: 'fc-broken-link-skip' });
+      }
+    }
+
+    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container fc-btn-spread' });
+    const cancelBtn = buttonContainer.createEl('button', { text: '取消' });
+    cancelBtn.onclick = () => this.close();
+
+    const confirmBtn = buttonContainer.createEl('button', {
+      text: fixable.length > 0 ? `确认修正 ${fixable.length} 个链接` : '无可修正链接',
+      cls: 'mod-cta'
+    });
+    confirmBtn.disabled = fixable.length === 0;
+    confirmBtn.onclick = () => {
+      this.close();
+      this.onConfirm(fixable);
+    };
   }
 
   onClose() {
@@ -1199,6 +1433,7 @@ class BatchFileManagerView extends ItemView {
       menu.addItem(item => item.setTitle('打标签').setIcon('tag').onClick(() => this.addTagsToSelected()));
       menu.addItem(item => item.setTitle('替换标签').setIcon('replace').onClick(() => this.replaceTagsInSelected()));
       menu.addItem(item => item.setTitle('重命名属性').setIcon('pencil').onClick(() => this.renameFrontmatterProperty()));
+      menu.addItem(item => item.setTitle('批量重命名').setIcon('file-pen').onClick(() => this.batchRenameSelected()));
       menu.addItem(item => item.setTitle('移动选中').setIcon('folder').onClick(() => this.moveSelected()));
       menu.addSeparator();
       menu.addItem(item => item.setTitle('删除选中').setIcon('trash').onClick(() => this.deleteSelected()));
@@ -1213,11 +1448,13 @@ class BatchFileManagerView extends ItemView {
       menu.addItem(item => item.setTitle('按文件夹筛选').setIcon('folder').onClick(() => this.showFolderSelectModal()));
       menu.addSeparator();
       menu.addItem(item => item.setTitle('失效图片').setIcon('image').onClick(() => this.findBrokenImages()));
+      menu.addItem(item => item.setTitle('修复失效图片').setIcon('image-plus').onClick(() => { void this.fixBrokenImageLinks(); }));
       menu.addItem(item => item.setTitle('失效文件链接').setIcon('link').onClick(() => { void this.fixBrokenFileLinks(); }));
       menu.addItem(item => item.setTitle('未引用图片').setIcon('image-off').onClick(() => this.findUnreferencedImages()));
       menu.addItem(item => item.setTitle('无标签笔记').setIcon('tag-off').onClick(() => this.findUntaggedNotes()));
       menu.addItem(item => item.setTitle('孤立笔记').setIcon('unlink').onClick(() => this.findOrphanNotes()));
       menu.addItem(item => item.setTitle('空文件').setIcon('file-minimal').onClick(() => this.findEmptyFiles()));
+      menu.addItem(item => item.setTitle('重复笔记').setIcon('copy').onClick(() => { void this.findDuplicateNotes(); }));
       menu.addItem(item => item.setTitle('Markdown 格式检测').setIcon('scan-search').onClick(() => { void this.checkMarkdownFormat(); }));
       const btnRect: DOMRect = findMenuBtn.getBoundingClientRect();
       menu.showAtPosition({ x: btnRect.left, y: btnRect.bottom });
@@ -1376,6 +1613,14 @@ class BatchFileManagerView extends ItemView {
         });
 
         menu.addItem((menuItem) => {
+          menuItem.setTitle('重命名')
+            .setIcon('pencil')
+            .onClick(() => {
+              this.renameSingleFile(item.file);
+            });
+        });
+
+        menu.addItem((menuItem) => {
           menuItem.setTitle('删除')
             .setIcon('trash')
             .onClick(() => {
@@ -1439,6 +1684,7 @@ class BatchFileManagerView extends ItemView {
         e.preventDefault();
         const menu = new Menu();
         menu.addItem(m => m.setTitle('打开').setIcon('file').onClick(() => { void this.app.workspace.getLeaf().openFile(file); }));
+        menu.addItem(m => m.setTitle('重命名').setIcon('pencil').onClick(() => this.renameSingleFile(file)));
         menu.addItem(m => m.setTitle('删除').setIcon('trash').onClick(() => { void this.deleteFile(file); }));
         menu.showAtMouseEvent(e);
       };
@@ -1688,7 +1934,7 @@ class BatchFileManagerView extends ItemView {
       return;
     }
 
-    new ConfirmModal(this.app, `确定要删除 ${selected.length} 个文件吗？此操作不可撤销！`, () => {
+    new ConfirmModal(this.app, `确定要删除 ${selected.length} 个文件吗？文件将移入回收站，可恢复。`, () => {
       void (async () => {
         let successCount = 0;
         let failCount = 0;
@@ -1703,18 +1949,18 @@ class BatchFileManagerView extends ItemView {
           }
         }
 
-        new Notice(`删除完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
+        new Notice(`已移入回收站: ${successCount} 个${failCount > 0 ? `，失败 ${failCount} 个` : ''}`);
         this.loadFiles();
       })();
     }).open();
   }
 
   private deleteFile(file: TFile) {
-    new ConfirmModal(this.app, `确定要删除 ${file.path} 吗？`, () => {
+    new ConfirmModal(this.app, `确定要删除 ${file.path} 吗？文件将移入回收站，可恢复。`, () => {
       void (async () => {
         try {
           await this.app.fileManager.trashFile(file);
-          new Notice(`已删除: ${file.path}`);
+          new Notice(`已移入回收站: ${file.path}`);
           this.loadFiles();
         } catch (error) {
           new Notice(`删除失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -2007,6 +2253,421 @@ class BatchFileManagerView extends ItemView {
       // 刷新文件列表
       this.loadFiles();
       })();
+    }).open();
+  }
+
+  private async findBrokenImages() {
+    new Notice('正在扫描文件中的图片链接...');
+  }
+
+  /** 生成内容归一化后的 hash，用于重复笔记检测（屏蔽代码块 + 去空白） */
+  private async contentHash(content: string): Promise<string> {
+    const normalized = this.maskCodeRegions(content).replace(/\s+/g, '');
+    const data = new TextEncoder().encode(normalized);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  /** 查找重复笔记：iCloud 冲突命名（a.md / a 1.md / a 2.md）+ 内容完全相同的文件 */
+  private async findDuplicateNotes() {
+    new Notice('正在扫描重复笔记...');
+    const allFiles = this.app.vault.getMarkdownFiles();
+    const byPath = new Map(allFiles.map(f => [f.path, f]));
+    const duplicatePaths = new Set<string>();
+    let groupCount = 0;
+
+    // 1. iCloud 冲突命名：basename 以「空格+数字」结尾，且同目录存在去掉后缀的原文件
+    const conflictRegex = /^(.*?) \d+$/;
+    const conflictGroups = new Map<string, TFile[]>();
+    for (const file of allFiles) {
+      const m = conflictRegex.exec(file.basename);
+      if (!m) continue;
+      const dir = file.parent?.path || '';
+      const originalPath = dir ? `${dir}/${m[1]}.md` : `${m[1]}.md`;
+      const original = byPath.get(originalPath);
+      if (!original) continue;
+      const key = originalPath;
+      const group = conflictGroups.get(key) ?? [original];
+      group.push(file);
+      conflictGroups.set(key, group);
+    }
+    for (const group of conflictGroups.values()) {
+      groupCount++;
+      for (const f of group) duplicatePaths.add(f.path);
+    }
+
+    // 2. 内容重复：归一化 hash 相同的归为一组
+    const byHash = new Map<string, TFile[]>();
+    for (const file of allFiles) {
+      try {
+        const hash = await this.contentHash(await this.app.vault.cachedRead(file));
+        const group = byHash.get(hash);
+        if (group) group.push(file);
+        else byHash.set(hash, [file]);
+      } catch (error) {
+        console.error(`读取文件失败: ${file.path}`, error);
+      }
+    }
+    for (const group of byHash.values()) {
+      if (group.length < 2) continue;
+      groupCount++;
+      for (const f of group) duplicatePaths.add(f.path);
+    }
+
+    if (duplicatePaths.size === 0) {
+      new Notice('未发现重复笔记');
+      return;
+    }
+
+    this.allFiles = allFiles
+      .filter(f => duplicatePaths.has(f.path))
+      .map(file => ({ file, selected: false }));
+    this.files = [...this.allFiles];
+    this.files.sort((a, b) => a.file.path.localeCompare(b.file.path));
+    this.renderView();
+    new Notice(`发现 ${groupCount} 组重复笔记，共 ${duplicatePaths.size} 个文件`);
+  }
+
+  /** 扫描并收集所有失效的内部图片链接（wiki 与 Markdown 图片语法） */
+  private async collectBrokenImageLinks(): Promise<BrokenImageLink[]> {
+    const allMarkdownFiles = this.app.vault.getMarkdownFiles();
+    const brokenLinks: BrokenImageLink[] = [];
+
+    const wikiImageRegex = /!\[\[([^\]]+)\]\]/g;
+    const mdImageRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+
+    const validExtensions = this.plugin.settings.imageExtensions
+      .split(',')
+      .map(ext => ext.trim().toLowerCase());
+    const imageFolders = this.plugin.settings.imageFolders
+      .split(',')
+      .map(folder => folder.trim())
+      .filter(folder => folder);
+
+    for (const file of allMarkdownFiles) {
+      try {
+        const rawContent = await this.app.vault.cachedRead(file);
+        const content = this.maskCodeRegions(rawContent);
+
+        for (const match of content.matchAll(wikiImageRegex)) {
+          const raw = match[1];
+          if (!raw) continue;
+          const pipeIndex = raw.indexOf('|');
+          const imagePath = (pipeIndex >= 0 ? raw.substring(0, pipeIndex) : raw).trim();
+          const suffix = pipeIndex >= 0 ? raw.substring(pipeIndex) : '';
+          if (!this.isBrokenImagePath(file, imagePath, validExtensions, imageFolders)) continue;
+          brokenLinks.push({
+            sourceFile: file,
+            originalText: match[0],
+            linkType: 'wiki',
+            imagePath,
+            suffix,
+            suggestedPath: this.suggestImagePath(imagePath, file.path)
+          });
+        }
+
+        for (const match of content.matchAll(mdImageRegex)) {
+          const raw = match[1];
+          if (!raw) continue;
+          const imagePath = raw.trim();
+          if (!this.isBrokenImagePath(file, imagePath, validExtensions, imageFolders)) continue;
+          brokenLinks.push({
+            sourceFile: file,
+            originalText: match[0],
+            linkType: 'markdown',
+            imagePath,
+            suffix: '',
+            suggestedPath: this.suggestImagePath(imagePath, file.path)
+          });
+        }
+      } catch (error) {
+        console.error(`扫描文件图片链接失败: ${file.path}`, error);
+      }
+    }
+
+    return brokenLinks;
+  }
+
+  /** 判断一个图片链接是否失效（复用查找失效图片的判定规则） */
+  private isBrokenImagePath(sourceFile: TFile, imagePath: string, validExtensions: string[], imageFolders: string[]): boolean {
+    if (!imagePath) return false;
+    const decoded = this.safeDecodeUriPath(imagePath);
+    if (decoded.startsWith('http://') || decoded.startsWith('https://')) return false;
+    const ext = decoded.split('.').pop()?.toLowerCase();
+    if (ext && !validExtensions.includes(ext)) return false;
+    return !this.checkImageExists(sourceFile, imagePath, imageFolders);
+  }
+
+  /** 为失效图片推荐新路径：按完整文件名在配置的图片文件夹与全库中精确匹配，唯一才返回 */
+  private suggestImagePath(imagePath: string, sourcePath: string): string | null {
+    const decoded = this.safeDecodeUriPath(imagePath);
+    const variants = decoded !== imagePath ? [imagePath, decoded] : [imagePath];
+
+    const exts = new Set(
+      this.plugin.settings.imageExtensions
+        .split(',')
+        .map(ext => ext.trim().toLowerCase())
+    );
+
+    for (const p of variants) {
+      const fileName = p.split('/').pop() || p;
+      if (!fileName) continue;
+      const inFolders = this.getAllImageFilesInConfiguredFolders().filter(f => f.name === fileName);
+      if (inFolders.length === 1) return inFolders[0].path;
+      const inVault = this.app.vault.getFiles().filter(f => f.name === fileName && exts.has(f.extension.toLowerCase()));
+      if (inVault.length === 1) return inVault[0].path;
+    }
+    return null;
+  }
+
+  /** 一键修正失效图片链接：扫描 -> 预览确认 -> 执行修正 */
+  private async fixBrokenImageLinks() {
+    new Notice('正在扫描失效图片链接...');
+    const brokenLinks = await this.collectBrokenImageLinks();
+
+    if (brokenLinks.length === 0) {
+      new Notice('未发现失效图片链接');
+      return;
+    }
+
+    const affectedFiles = Array.from(new Map(brokenLinks.map(link => [link.sourceFile.path, link.sourceFile])).values());
+    this.allFiles = affectedFiles.map(file => ({ file, selected: false }));
+    this.files = [...this.allFiles];
+    this.files.sort((a, b) => a.file.path.localeCompare(b.file.path));
+    this.renderView();
+
+    new BrokenImageLinksModal(
+      this.app,
+      brokenLinks,
+      (links) => { void this.applyBrokenImageFixes(links); }
+    ).open();
+  }
+
+  /** 根据建议路径构造新的图片链接文本，wiki 保留 | 尺寸参数 */
+  private buildReplacementImageLink(link: BrokenImageLink): string {
+    if (!link.suggestedPath) return link.originalText;
+
+    if (link.linkType === 'wiki') {
+      return `![[${link.suggestedPath}${link.suffix}]]`;
+    }
+    const encodedPath = this.encodeMarkdownLinkPath(link.suggestedPath);
+    return link.originalText.replace(/\(([^)]+)\)/, `(${encodedPath})`);
+  }
+
+  /** 应用图片链接修正：按文件分组，每个文件只读写一次 */
+  private async applyBrokenImageFixes(links: BrokenImageLink[]) {
+    if (links.length === 0) return;
+
+    const byFile = new Map<TFile, BrokenImageLink[]>();
+    for (const link of links) {
+      const group = byFile.get(link.sourceFile);
+      if (group) group.push(link);
+      else byFile.set(link.sourceFile, [link]);
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const [file, fileLinks] of byFile) {
+      try {
+        let content = await this.app.vault.read(file);
+        for (const link of fileLinks) {
+          if (!link.suggestedPath || !content.includes(link.originalText)) continue;
+          const newLink = this.buildReplacementImageLink(link);
+          if (newLink === link.originalText) continue;
+          content = content.split(link.originalText).join(newLink);
+          successCount++;
+        }
+        await this.app.vault.modify(file, content);
+      } catch (error) {
+        console.error(`修正图片链接失败: ${file.path}`, error);
+        failCount += fileLinks.length;
+      }
+    }
+
+    new Notice(`图片链接修正完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
+    if (successCount > 0) {
+      this.loadFiles();
+    }
+  }
+
+  /** 重命名后更新全库指向旧路径的 Markdown 链接 [t](old.md)，wiki 链接交给 Obsidian 自动更新 */
+  private async updateMarkdownLinksAfterRename(oldPath: string, newFile: TFile) {
+    const mdLinkRegex = /(?<!!)\[(?:[^\]]*)\]\(([^)]+)\)/g;
+
+    for (const source of this.app.vault.getMarkdownFiles()) {
+      if (source.path === newFile.path) continue;
+      try {
+        const rawContent = await this.app.vault.cachedRead(source);
+        const masked = this.maskCodeRegions(rawContent);
+        const replacements: Array<{ original: string; updated: string }> = [];
+
+        for (const match of masked.matchAll(mdLinkRegex)) {
+          const raw = match[1];
+          if (!raw) continue;
+          const parsed = parseMarkdownLink(raw);
+          if (!isInternalFileLink(parsed.linkPath)) continue;
+          // parseLinktext 会把 |alias 并入 path，先剥掉再判定与构造
+          const rawPath = parsed.linkPath.split('|')[0];
+          // 用重命名前的解析策略判断该链接是否指向旧文件
+          const target = this.resolveFileLinkFromDir(rawPath, source.path, oldPath);
+          if (!target || target !== oldPath) continue;
+
+          const newLinkPath = this.buildLinkPathForTarget(newFile, source.path, rawPath);
+          const encoded = this.encodeMarkdownLinkPath(newLinkPath);
+          const updated = match[0].replace(/\(([^)]+)\)/, `(${encoded})`);
+          if (updated !== match[0]) {
+            replacements.push({ original: match[0], updated });
+          }
+        }
+
+        if (replacements.length === 0) continue;
+        let content = await this.app.vault.read(source);
+        for (const r of replacements) {
+          content = content.split(r.original).join(r.updated);
+        }
+        await this.app.vault.modify(source, content);
+      } catch (error) {
+        console.error(`更新链接失败: ${source.path}`, error);
+      }
+    }
+  }
+
+  /**
+   * 用重命名前的路径形态判断链接是否指向 oldPath：
+   * 最简路径（a.md）按旧文件名匹配；相对/完整路径解析为 vault 根路径后与 oldPath 比对。
+   */
+  private resolveFileLinkFromDir(linkPath: string, sourcePath: string, oldPath: string): string | null {
+    const decoded = this.safeDecodeUriPath(linkPath);
+    const oldFileName = oldPath.split('/').pop() || oldPath;
+    const oldBaseName = oldFileName.replace(/\.[^.]+$/, '');
+
+    for (const p of (decoded !== linkPath ? [linkPath, decoded] : [linkPath])) {
+      if (!p.includes('/')) {
+        // 最简路径：按文件名或 basename 匹配旧文件
+        if (p === oldFileName || p === oldBaseName) return oldPath;
+        continue;
+      }
+      // 完整/相对路径：解析为 vault 根路径
+      const sourceDir = sourcePath.split('/').slice(0, -1).join('/');
+      const resolved = p.startsWith('./') || p.startsWith('../')
+        ? this.resolveRelativePath(sourceDir, p)
+        : p;
+      if (resolved === oldPath) return oldPath;
+    }
+    return null;
+  }
+
+  /** 根据原链接风格构造指向新文件的链接路径（保持最简/相对/完整形态） */
+  private buildLinkPathForTarget(newFile: TFile, sourcePath: string, originalLinkPath: string): string {
+    if (!originalLinkPath.includes('/')) {
+      return newFile.name; // 最简路径：仅文件名
+    }
+    if (originalLinkPath.startsWith('./') || originalLinkPath.startsWith('../')) {
+      const sourceDir = sourcePath.split('/').slice(0, -1).join('/');
+      return this.computeRelativePath(sourceDir, newFile.path);
+    }
+    return newFile.path; // 完整路径
+  }
+
+  /** 计算从 sourceDir 到 targetPath 的相对路径（含 ../ 与前缀 ./） */
+  private computeRelativePath(sourceDir: string, targetPath: string): string {
+    const sourceParts = sourceDir ? sourceDir.split('/').filter(Boolean) : [];
+    const targetParts = targetPath.split('/').filter(Boolean);
+    let i = 0;
+    while (i < sourceParts.length && i < targetParts.length && sourceParts[i] === targetParts[i]) {
+      i++;
+    }
+    const ups = sourceParts.length - i;
+    const downs = targetParts.slice(i);
+    const prefix = ups > 0 ? '../'.repeat(ups) : './';
+    return prefix + downs.join('/');
+  }
+
+  /** 单文件重命名：弹输入框，改名后更新全库 Markdown 链接 */
+  private renameSingleFile(file: TFile) {
+    new RenameInputModal(this.app, file.basename, (newName) => {
+      void (async () => {
+        const trimmed = newName.trim();
+        if (!trimmed || trimmed === file.basename) return;
+        if (/[\\/:*?"<>|#^[\]]/.test(trimmed)) {
+          new Notice('文件名包含非法字符');
+          return;
+        }
+        const dir = file.parent?.path || '';
+        const newPath = dir ? `${dir}/${trimmed}.${file.extension}` : `${trimmed}.${file.extension}`;
+        if (this.app.vault.getAbstractFileByPath(newPath)) {
+          new Notice('已存在同名文件');
+          return;
+        }
+        const oldPath = file.path;
+        try {
+          await this.app.fileManager.renameFile(file, newPath);
+          new Notice(`已重命名为: ${newPath}`);
+          await this.updateMarkdownLinksAfterRename(oldPath, file);
+          this.loadFiles();
+        } catch (error) {
+          console.error(`重命名失败: ${oldPath}`, error);
+          new Notice(`重命名失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      })();
+    }).open();
+  }
+
+  /** 批量重命名：查找替换 basename（可选正则），预览确认后执行并同步更新链接 */
+  private batchRenameSelected() {
+    const selected = this.getSelectedFiles();
+    if (selected.length === 0) {
+      new Notice('请先选择要重命名的文件');
+      return;
+    }
+    new BatchRenameModal(this.app, (find, replace, useRegex) => {
+      const plans: Array<{ file: TFile; newPath: string }> = [];
+      let regex: RegExp | null = null;
+      if (useRegex) {
+        try {
+          regex = new RegExp(find, 'g');
+        } catch {
+          new Notice('正则表达式无效');
+          return;
+        }
+      }
+      for (const file of selected) {
+        const newBase = useRegex && regex
+          ? file.basename.replace(regex, replace)
+          : file.basename.split(find).join(replace);
+        if (newBase === file.basename || !newBase.trim()) continue;
+        const dir = file.parent?.path || '';
+        const newPath = dir ? `${dir}/${newBase}.${file.extension}` : `${newBase}.${file.extension}`;
+        plans.push({ file, newPath });
+      }
+      if (plans.length === 0) {
+        new Notice('没有文件名会发生变化');
+        return;
+      }
+      new BatchRenamePreviewModal(this.app, plans, () => {
+        void (async () => {
+          let successCount = 0;
+          let failCount = 0;
+          for (const plan of plans) {
+            try {
+              if (this.app.vault.getAbstractFileByPath(plan.newPath)) {
+                failCount++;
+                continue;
+              }
+              const oldPath = plan.file.path;
+              await this.app.fileManager.renameFile(plan.file, plan.newPath);
+              await this.updateMarkdownLinksAfterRename(oldPath, plan.file);
+              successCount++;
+            } catch (error) {
+              console.error(`批量重命名失败: ${plan.file.path}`, error);
+              failCount++;
+            }
+          }
+          new Notice(`批量重命名完成: 成功 ${successCount} 个，失败 ${failCount} 个`);
+          this.loadFiles();
+        })();
+      }).open();
     }).open();
   }
 
@@ -3037,7 +3698,9 @@ class BatchFileManagerView extends ItemView {
           if (ch === '\t') tabs++;
           else spaces++;
         }
-        return '\t'.repeat(tabs + Math.floor(spaces / 2)) + ' '.repeat(spaces % 2);
+        // 奇数空格向上进位为 1 个 tab，保证修复后不再残留空格缩进，
+        // 否则「检测认为有问题、修复后又检出同一行」永远收敛不了
+        return '\t'.repeat(tabs + Math.ceil(spaces / 2));
       });
     }
     // 再修内容
