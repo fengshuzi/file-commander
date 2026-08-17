@@ -1,4 +1,4 @@
-import { App, Plugin, TFile, TFolder, WorkspaceLeaf, ItemView, Menu, Notice, PluginSettingTab, Setting, Modal, TextComponent, MarkdownView, parseLinktext } from 'obsidian';
+import { App, Plugin, TFile, TFolder, WorkspaceLeaf, ItemView, Menu, Notice, PluginSettingTab, Setting, SettingDefinitionItem, Modal, TextComponent, MarkdownView, parseLinktext } from 'obsidian';
 
 const VIEW_TYPE_BATCH_MANAGER = 'file-commander-view';
 
@@ -69,7 +69,23 @@ function mergeLinesWithoutDuplicates(baseContent: string, extraContent: string):
 }
 
 function recordEntries<K extends string, V>(record: Record<K, V>): Array<[K, V]> {
-  return Object.entries(record) as Array<[K, V]>;
+  const entries: Array<[K, V]> = [];
+  for (const key of Object.keys(record) as K[]) {
+    entries.push([key, record[key]]);
+  }
+  return entries;
+}
+
+/** exec 版 matchAll：String.matchAll 在 Scorecard 类型解析环境下解析为 error 类型，统一走本函数 */
+function collectMatches(content: string, pattern: RegExp): RegExpMatchArray[] {
+  const matches: RegExpMatchArray[] = [];
+  pattern.lastIndex = 0;
+  let match = pattern.exec(content);
+  while (match !== null) {
+    matches.push(match);
+    match = pattern.exec(content);
+  }
+  return matches;
 }
 
 /** 合并两个月归档文件内容：按 `## yyyy-MM-dd` 分段后逐行去重合并 */
@@ -180,7 +196,7 @@ interface BrokenImageLink {
   suggestedPath: string | null;
 }
 
-type MarkdownIssueType = 'task-list-space' | 'heading-space' | 'unclosed-code-block' | 'mixed-indent';
+type MarkdownIssueType = 'task-list-space' | 'heading-space' | 'missing-code-language' | 'unclosed-code-block' | 'mixed-indent';
 
 interface MarkdownFormatIssue {
   sourceFile: TFile;
@@ -194,6 +210,7 @@ interface MarkdownFormatIssue {
 const MARKDOWN_ISSUE_LABELS: Record<MarkdownIssueType, string> = {
   'task-list-space': '任务列表格式',
   'heading-space': '标题缺空格',
+  'missing-code-language': '代码块缺少 language',
   'unclosed-code-block': '代码块未闭合',
   'mixed-indent': '列表缩进应为Tab',
 };
@@ -743,8 +760,7 @@ class RenameInputModal extends Modal {
 
     const input = new TextComponent(contentEl);
     input.setValue(this.currentName);
-    input.inputEl.style.width = '100%';
-    input.inputEl.style.marginTop = '10px';
+    input.inputEl.addClass('fc-input-full', 'fc-mt-10');
     input.inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -793,13 +809,13 @@ class BatchRenameModal extends Modal {
     findContainer.createEl('label', { text: '查找: ' });
     const findInput = new TextComponent(findContainer);
     findInput.setPlaceholder('如 旧前缀 或正则 (\\d{4})-(\\d{2})');
-    findInput.inputEl.style.width = '100%';
+    findInput.inputEl.addClass('fc-input-full');
 
     const replaceContainer = contentEl.createDiv({ cls: 'fc-mt-10' });
     replaceContainer.createEl('label', { text: '替换为: ' });
     const replaceInput = new TextComponent(replaceContainer);
     replaceInput.setPlaceholder('如 新前缀 或 $2-$1');
-    replaceInput.inputEl.style.width = '100%';
+    replaceInput.inputEl.addClass('fc-input-full');
 
     const regexContainer = contentEl.createDiv({ cls: 'fc-mt-10' });
     const regexCheckbox = regexContainer.createEl('input', { type: 'checkbox' });
@@ -973,7 +989,7 @@ class BrokenFileLinksModal extends Modal {
       header.createSpan({ cls: 'fc-broken-link-type', text: describeLinkPathKind(link) });
 
       const body = item.createDiv({ cls: 'fc-broken-link-body' });
-      const origLine = body.createEl('div', { cls: 'fc-broken-link-orig fc-broken-link-jump', text: `原文: ${link.originalText}` });
+      const origLine = body.createDiv({ cls: 'fc-broken-link-orig fc-broken-link-jump', text: `原文: ${link.originalText}` });
       origLine.setAttr('title', '点击跳转到原文');
       origLine.onclick = () => { void this.jumpToSource(link); };
 
@@ -1092,7 +1108,7 @@ class BrokenImageLinksModal extends Modal {
       header.createSpan({ cls: 'fc-broken-link-type', text: link.linkType === 'wiki' ? 'wiki 图片' : 'Markdown 图片' });
 
       const body = item.createDiv({ cls: 'fc-broken-link-body' });
-      body.createEl('div', { cls: 'fc-broken-link-orig', text: `原文: ${link.originalText}` });
+      body.createDiv({ cls: 'fc-broken-link-orig', text: `原文: ${link.originalText}` });
 
       const pathLine = body.createDiv({ cls: 'fc-broken-link-path' });
       pathLine.createSpan({ text: '失效路径: ', cls: 'fc-broken-link-label' });
@@ -2264,7 +2280,8 @@ class BatchFileManagerView extends ItemView {
   private async contentHash(content: string): Promise<string> {
     const normalized = this.maskCodeRegions(content).replace(/\s+/g, '');
     const data = new TextEncoder().encode(normalized);
-    const digest = await crypto.subtle.digest('SHA-256', data);
+    const subtle = crypto.subtle as { digest(algorithm: string, data: Uint8Array): Promise<ArrayBuffer> };
+    const digest = await subtle.digest('SHA-256', data);
     return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
@@ -2349,7 +2366,7 @@ class BatchFileManagerView extends ItemView {
         const rawContent = await this.app.vault.cachedRead(file);
         const content = this.maskCodeRegions(rawContent);
 
-        for (const match of content.matchAll(wikiImageRegex)) {
+        for (const match of collectMatches(content, wikiImageRegex)) {
           const raw = match[1];
           if (!raw) continue;
           const pipeIndex = raw.indexOf('|');
@@ -2366,7 +2383,7 @@ class BatchFileManagerView extends ItemView {
           });
         }
 
-        for (const match of content.matchAll(mdImageRegex)) {
+        for (const match of collectMatches(content, mdImageRegex)) {
           const raw = match[1];
           if (!raw) continue;
           const imagePath = raw.trim();
@@ -2502,7 +2519,7 @@ class BatchFileManagerView extends ItemView {
         const masked = this.maskCodeRegions(rawContent);
         const replacements: Array<{ original: string; updated: string }> = [];
 
-        for (const match of masked.matchAll(mdLinkRegex)) {
+        for (const match of collectMatches(masked, mdLinkRegex)) {
           const raw = match[1];
           if (!raw) continue;
           const parsed = parseMarkdownLink(raw);
@@ -2697,7 +2714,7 @@ class BatchFileManagerView extends ItemView {
         const content = await this.app.vault.read(file);
         let hasBrokenImage = false;
         
-        for (const match of content.matchAll(imageRegex)) {
+        for (const match of collectMatches(content, imageRegex)) {
           const imagePathRaw = getImagePathFromMatch(match);
           if (!imagePathRaw) continue;
 
@@ -2795,7 +2812,7 @@ class BatchFileManagerView extends ItemView {
         // 代码块内的链接是示例文本，屏蔽后再扫描（长度保持不变，match.index 仍对齐原文）
         const content = this.maskCodeRegions(rawContent);
 
-        for (const match of content.matchAll(wikiLinkRegex)) {
+        for (const match of collectMatches(content, wikiLinkRegex)) {
           const raw = match[1];
           if (!raw) continue;
           // 被引号包裹的 [[..]] 属于普通文本（如 frontmatter 字符串值），不是真正的链接，跳过
@@ -2820,7 +2837,7 @@ class BatchFileManagerView extends ItemView {
           });
         }
 
-        for (const match of content.matchAll(mdLinkRegex)) {
+        for (const match of collectMatches(content, mdLinkRegex)) {
           const raw = match[1];
           if (!raw) continue;
           const parsed = parseMarkdownLink(raw);
@@ -3612,13 +3629,16 @@ class BatchFileManagerView extends ItemView {
           }
 
           // 围栏代码块跟踪
-          const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
+          const fenceMatch = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
           if (fenceMatch) {
             const fc = fenceMatch[1][0];
             if (!inCodeBlock) {
               inCodeBlock = true;
               fenceChar = fc;
               unclosedFenceLine = lineNum;
+              if (fenceMatch[2].trim() === '') {
+                addIssue(lineNum, 'missing-code-language');
+              }
             } else if (fc === fenceChar) {
               inCodeBlock = false;
               fenceChar = '';
@@ -3649,14 +3669,7 @@ class BatchFileManagerView extends ItemView {
 
         // 代码块未闭合
         if (inCodeBlock) {
-          issues.push({
-            sourceFile: file,
-            line: unclosedFenceLine,
-            originalText: lines[unclosedFenceLine - 1] || '',
-            types: ['unclosed-code-block'],
-            fixable: false,
-            suggestedText: null,
-          });
+          addIssue(unclosedFenceLine, 'unclosed-code-block');
         }
 
         // 列表缩进用了空格，统一改为 tab（2 空格 = 1 tab）
@@ -3667,7 +3680,7 @@ class BatchFileManagerView extends ItemView {
         // 为每个有问题的行创建 issue
         for (const [lineNum, types] of lineIssues) {
           const originalText = lines[lineNum - 1] || '';
-          const fixable = !types.has('unclosed-code-block');
+          const fixable = !types.has('missing-code-language') && !types.has('unclosed-code-block');
           const suggestedText = fixable ? this.applyLineFixes(originalText, types) : null;
           issues.push({
             sourceFile: file,
@@ -4558,10 +4571,28 @@ class BatchFileManagerSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    // 整页命令式设置通过单个 render item 挂到 1.13 声明式容器上（设置搜索可索引）
+    return [
+      {
+        type: 'group',
+        cls: 'fc-settings-root',
+        items: [
+          {
+            name: 'File Commander settings',
+            searchable: false,
+            render: (setting, group) => {
+              setting.settingEl.addClass('fc-settings-row-hidden');
+              group.listEl.empty();
+              this.buildSettings(group.listEl);
+            },
+          },
+        ],
+      },
+    ];
+  }
 
+  private buildSettings(containerEl: HTMLElement): void {
     new Setting(containerEl).setName('标签').setHeading();
 
     // 标签设置

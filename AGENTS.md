@@ -21,7 +21,7 @@
 
 ## Versioning
 - Keep `package.json`, `manifest.json`, and `versions.json` versions in sync when changing the plugin version.
-- `manifest.json` currently declares `minAppVersion` `1.7.2`; add a matching entry in `versions.json` for any new release version.
+- `manifest.json` currently declares `minAppVersion` `1.13.0` (declarative settings API requires 1.13.0); add a matching entry in `versions.json` for any new release version.
 
 ## Marketplace / Scorecard
 Marketplace, manifest, and release conventions (author fields, description punctuation, `minAppVersion`, `versions.json`, Scorecard workflow) live in the parent `obsidian-plugins-parent/AGENTS.md`. Read it before touching `manifest.json`, release flow, or marketplace-facing code.
