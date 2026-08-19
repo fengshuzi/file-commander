@@ -4154,6 +4154,12 @@ class BatchFileManagerView extends ItemView {
           // 同名 .hide 已存在（iCloud 可能同步回了旧副本）：逐行去重合并后删除可见文件
           const hideContent = await this.app.vault.read(existingHide);
           const visibleContent = await this.app.vault.read(file);
+          // iCloud 占位文件（未下载完成）会读到空内容，此时删除可见文件会造成数据丢失，必须跳过
+          if (visibleContent.trim().length === 0) {
+            failed++;
+            console.warn(`归档文件内容为空，跳过隐藏: ${file.path}`);
+            continue;
+          }
           await this.app.vault.modify(existingHide, mergeMonthFileContents(hideContent, visibleContent));
           await this.app.fileManager.trashFile(file);
           mergedIntoHide++;
@@ -4817,6 +4823,13 @@ export default class BatchFileManagerPlugin extends Plugin {
         conflictContent = await this.app.vault.read(file);
       } catch (error) {
         console.error(`读取冲突文件失败: ${file.path}`, error);
+        skipped++;
+        continue;
+      }
+
+      // iCloud 占位文件（未下载完成）会读到空内容，此时删除冲突副本会造成数据丢失，必须跳过
+      if (conflictContent.trim().length === 0) {
+        console.warn(`冲突文件内容为空，跳过合并: ${file.path}`);
         skipped++;
         continue;
       }
